@@ -2,7 +2,7 @@
 id: T-002
 titulo: Leitura e validação da configuração TOML
 projeto: shopee-rodizio
-status: em-teste
+status: em-revisao
 prioridade: alta
 dependencias: [T-001]
 areas: [src/shopee_rodizio/config.py, config.example.toml, tests/test_config.py]
@@ -10,6 +10,7 @@ tentativas: 1
 agente: config-estado
 criada: 2026-08-24
 atualizada: 2026-08-24
+ciclo-1: verificador testou com sucesso
 ---
 
 ## Objetivo
@@ -99,6 +100,25 @@ Nenhuma dependência nova (usa só `tomllib`/stdlib, conforme já decidido em
 **Commit:** `bd231b6`
 
 ## Verificação
+
+### Ciclo 1
+
+- **[PASSOU] [executado] Critério 1: `uv run pytest tests/test_config.py -q` → todos os testes passam**
+  Comando: `python -m uv run pytest tests/test_config.py -q`
+  Saída: `8 passed in 0.14s`
+  Detalhes: Todos os 8 testes passaram, cobrindo config válida e 6 casos de config inválida (peso negativo, campo Shopee ausente, item sem peso, item sem id, intervalo_horas inválido, limite_slots inválido).
+
+- **[PASSOU] [executado] Critério 2: `config.example.toml` é TOML válido**
+  Comando: `python -m uv run python -c "import tomllib, pathlib; tomllib.loads(pathlib.Path('config.example.toml').read_text())"`
+  Saída: Sem erros (execução bem-sucedida)
+
+- **[PASSOU] [executado] Critério 3: `uv run ruff check src/shopee_rodizio/config.py` → sem erros**
+  Comando: `python -m uv run ruff check src/shopee_rodizio/config.py`
+  Saída: `All checks passed!`
+
+Suíte completa: 8 passou, 0 falhou
+Graus de prova: 3 executados, 0 inspecionados, 0 julgados
+
 
 
 ## Conformidade
