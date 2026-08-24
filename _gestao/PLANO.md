@@ -9,8 +9,8 @@ antes da próxima somar complexidade.
 Meta: projeto Python criado pelo `uv`, com lint/format/teste rodando, mais os dois
 alicerces de que todo o resto depende — leitura de config e persistência de estado — cada
 um com teste passando.
-Marco: pendente
-Tarefas: T-001, T-002, T-003
+Marco: reprovado 2026-08-24
+Tarefas: T-001, T-002, T-003, T-011
 
 ## Fase 2 — Núcleo
 Meta: ciclo de rodízio completo e funcional de ponta a ponta contra a API real da Shopee

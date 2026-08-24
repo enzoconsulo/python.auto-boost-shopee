@@ -2,7 +2,7 @@
 id: T-007
 titulo: Log em arquivo com rotação
 projeto: shopee-rodizio
-status: backlog
+status: pronta
 prioridade: media
 dependencias: [T-002]
 areas: [src/shopee_rodizio/logging_config.py, tests/test_logging_config.py]

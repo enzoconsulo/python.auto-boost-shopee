@@ -2,7 +2,7 @@
 id: T-006
 titulo: Sorteio ponderado de itens sem reposição por ciclo
 projeto: shopee-rodizio
-status: backlog
+status: pronta
 prioridade: alta
 dependencias: [T-002, T-003]
 areas: [src/shopee_rodizio/selecao.py, tests/test_selecao.py]

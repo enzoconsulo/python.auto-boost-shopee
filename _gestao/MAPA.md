@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 3398b7d · 2026-08-24 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 7cbd7a9 · 2026-08-24 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -14,7 +14,7 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 ```
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
-_gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md
+_gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
 src/shopee_rodizio/  __init__.py, config.py, estado.py
 tests/  test_config.py, test_estado.py, test_scaffold.py
 ```

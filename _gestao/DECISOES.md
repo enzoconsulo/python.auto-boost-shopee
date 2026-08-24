@@ -31,6 +31,23 @@ scheduler de terceiros (ex.: APScheduler) foi adotado — um job periódico úni
 de loop próprio, abaixo do limiar de 50 linhas do filtro de não-adoção.
 **Quem:** planejador
 
+## 2026-08-24 — Marco da Fase 1 reprovado: regressão de lint por critério de tarefa escopado demais
+**Decisão:** criar T-011 (correção pontual, causa única) em vez de reabrir/cancelar
+T-001, T-002 ou T-003.
+**Motivo:** o marco da Fase 1 reprova porque `uv run ruff check .` (critério 1 de
+T-001, a fundação de que todas as tarefas dependem) falha hoje no projeto inteiro —
+`tests/test_estado.py:1` tem um import não utilizado (`from pathlib import Path`,
+`F401`) introduzido por T-003. A própria Revisão de T-003 já tinha apontado isso como
+achado `[menor]`, mas não bloqueou porque o critério de lint daquela tarefa era
+escopado só a `src/shopee_rodizio/estado.py`, não ao arquivo de teste que ela também
+criou — a lição fica registrada aqui para as próximas tarefas: critério de lint por
+arquivo único não pega regressão em arquivo vizinho da mesma tarefa; quando fizer
+sentido, prefira `uv run ruff check .` (projeto inteiro) como critério, que é
+barato e já é o que T-001 estabeleceu como invariante da fundação. Nenhum teste
+quebrou (`uv run pytest -q` → 15 passed) — é só lint, causa única, confirmada
+rodando os dois comandos antes de criar a correção.
+**Quem:** planejador
+
 ## 2026-08-24 — Endpoint de boost da Shopee: incerteza registrada
 **Decisão:** o cliente HTTP da Shopee (T-004/T-005) implementa o caminho e os nomes de
 parâmetro do endpoint de impulsionamento como CONFIGURÁVEIS no TOML, em vez de fixos no

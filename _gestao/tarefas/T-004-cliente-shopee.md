@@ -2,11 +2,11 @@
 id: T-004
 titulo: Cliente HTTP Shopee com assinatura HMAC e renovação de token
 projeto: shopee-rodizio
-status: backlog
+status: em-execucao
 prioridade: alta
 dependencias: [T-001, T-002]
 areas: [src/shopee_rodizio/cliente_shopee.py, tests/test_cliente_shopee.py]
-tentativas: 0
+tentativas: 1
 agente: integracao-shopee
 criada: 2026-08-24
 atualizada: 2026-08-24
