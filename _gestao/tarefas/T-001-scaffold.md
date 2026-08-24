@@ -2,11 +2,11 @@
 id: T-001
 titulo: Scaffold do projeto Python (uv) com lint, teste e GUIA.md
 projeto: shopee-rodizio
-status: pronta
+status: em-execucao
 prioridade: alta
 dependencias: []
 areas: [pyproject.toml, README.md, tests/test_scaffold.py, _gestao/GUIA.md]
-tentativas: 0
+tentativas: 1
 criada: 2026-08-24
 atualizada: 2026-08-24
 ---
@@ -66,6 +66,36 @@ estão lá hoje.
 
 ## Notas de execução
 
+`uv` não estava instalado no ambiente (nem no PATH do bash nem do PowerShell). Instalado
+via `pip install --user uv` (resolveu para
+`~/AppData/Roaming/Python/Python312/Scripts/uv.exe`); anotado em Armadilhas conhecidas do
+`_gestao/GUIA.md` para os próximos ciclos.
+
+Rodado `uv init --package --name shopee_rodizio .` na raiz (criou `pyproject.toml`,
+`src/shopee_rodizio/__init__.py`, `.python-version` em 3.12) — o `README.md` já existente
+foi preservado pelo `uv` (não sobrescreveu). Adicionado `requests` (runtime) via `uv add
+requests` e `ruff`+`pytest` (dev) via `uv add --dev ruff pytest`. Configurado
+`[tool.ruff]` em `pyproject.toml` com `target-version = "py312"` (versão resolvida pelo
+`uv`) e `line-length = 100`.
+
+Criado `tests/test_scaffold.py` (importa `shopee_rodizio` e confere que `main` existe).
+Criado `.gitignore` (`uv init` não gerou um automaticamente) excluindo `.venv/`,
+`.pytest_cache/`, `.ruff_cache/`, `__pycache__/`, `*.pyc`.
+
+Atualizado `README.md` com "Como rodar" (`uv run python -m shopee_rodizio`) e "Como
+testar" (`uv run pytest -q` + `uv run ruff check .`). O comando de rodar ainda falha
+("No module named shopee_rodizio.__main__") porque o entrypoint real só será
+implementado em T-008 (ciclo) — conforme o Contexto desta tarefa autoriza
+explicitamente ("mesmo que o entrypoint ainda não exista, documente o comando alvo").
+
+Preenchido `_gestao/GUIA.md` a partir do template: seção 1 (stack, rodar, testar) e
+seção 2 com os módulos planejados (`config.py`, `estado.py`, `cliente_shopee.py`,
+`boost.py`, `selecao.py`, `ciclo.py`, `logging_config.py`, ainda não criados). Seções 3 e
+4 deixadas enxutas, a crescer nas próximas tarefas.
+
+Regenerado `_gestao/MAPA.md`.
+
+**Reproduzir:** `export PATH="/c/Users/enzoc/AppData/Roaming/Python/Python312/Scripts:$PATH" && cd projetos/shopee-rodizio && uv run ruff check . && uv run pytest -q`
 
 ## Verificação
 
