@@ -2,7 +2,7 @@
 id: T-002
 titulo: Leitura e validação da configuração TOML
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: alta
 dependencias: [T-001]
 areas: [src/shopee_rodizio/config.py, config.example.toml, tests/test_config.py]
@@ -95,6 +95,8 @@ Nenhuma dependência nova (usa só `tomllib`/stdlib, conforme já decidido em
 `_gestao/DECISOES.md`).
 
 **Reproduzir:** `uv run pytest tests/test_config.py -q`
+
+**Commit:** `bd231b6`
 
 ## Verificação
 
