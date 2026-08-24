@@ -2,7 +2,7 @@
 id: T-001
 titulo: Scaffold do projeto Python (uv) com lint, teste e GUIA.md
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: alta
 dependencias: []
 areas: [pyproject.toml, README.md, tests/test_scaffold.py, _gestao/GUIA.md]
@@ -96,6 +96,8 @@ seção 2 com os módulos planejados (`config.py`, `estado.py`, `cliente_shopee.
 Regenerado `_gestao/MAPA.md`.
 
 **Reproduzir:** `export PATH="/c/Users/enzoc/AppData/Roaming/Python/Python312/Scripts:$PATH" && cd projetos/shopee-rodizio && uv run ruff check . && uv run pytest -q`
+
+**Commit:** `8e43db8`
 
 ## Verificação
 
