@@ -1,0 +1,26 @@
+{
+  "dominio": "software",
+  "agentes": [
+    {
+      "id": "integracao-shopee",
+      "nome": "Especialista Integração Shopee",
+      "descricao": "Quando a tarefa toca autenticação HMAC, chamada da API Shopee ou o endpoint de boost",
+      "prompt": "Domínio: src/shopee_rodizio/cliente_shopee.py, src/shopee_rodizio/boost.py, scripts/smoke_test.py.\n\nO QUE VIVE AQUI: `cliente_shopee.py` monta a assinatura HMAC-SHA256 (partner_id + path + timestamp [+ access_token + shop_id quando a chamada é de loja] assinados com partner_key), faz a requisição HTTP via `requests` e renova `access_token` via `refresh_token` quando perto de expirar (validade ~4h; refresh_token ~30 dias, endpoint `/api/v2/auth/access_token/get`). `boost.py` usa o cliente para chamar o endpoint de impulsionamento por item.\n\nINVARIANTES: nenhuma chamada sobe sem assinatura válida; token renovado é persistido (nunca só em memória — reinício do processo não pode perder um refresh_token válido); nenhum erro de rede/API pode propagar como exceção não tratada até o chamador do ciclo — sempre retorna um resultado (sucesso/erro) que o chamador loga.\n\nCOMO SE PROVA: teste com `requests` mockado (`unittest.mock` ou `responses`) verificando que a assinatura HMAC bate com um vetor de entrada conhecido, e que erro HTTP/timeout vira retorno de erro, não exceção. `uv run pytest tests/test_cliente_shopee.py -q`.\n\nARMADILHAS JÁ PAGAS: o endpoint exato de impulsionamento (caminho, nomes de parâmetro) NÃO está confirmado em documentação pública (ver DECISOES.md, 2026-08-24) — por isso é lido do TOML, nunca hardcoded; se travar numa constante e a Shopee usar outro caminho, a tarefa é impedimento de especificação, não de execução (use o canal `Impedimento:`, não invente o endpoint de cabeça).",
+      "ferramentas": ["Read", "Glob", "Grep", "Edit", "Write", "Bash"]
+    },
+    {
+      "id": "config-estado",
+      "nome": "Especialista Config e Estado",
+      "descricao": "Quando a tarefa toca leitura de configuração TOML, persistência de estado JSON ou o sorteio ponderado de itens",
+      "prompt": "Domínio: src/shopee_rodizio/config.py, src/shopee_rodizio/estado.py, src/shopee_rodizio/selecao.py, config.example.toml.\n\nO QUE VIVE AQUI: `config.py` lê e valida o TOML do usuário (itens com peso, credenciais, intervalo de ciclo, limite de slots simultâneos, caminhos de log/estado) via `tomllib` (stdlib — não adicione dependência de parsing TOML). `estado.py` lê/grava o histórico de boosts em JSON local (item, timestamp, sucesso/erro). `selecao.py` implementa o sorteio ponderado SEM reposição dentro do mesmo ciclo, até o limite de slots.\n\nINVARIANTES: config inválida (item sem peso, peso negativo, campo obrigatório ausente) falha com mensagem clara ANTES do primeiro ciclo — nunca silenciosamente ignora item malformado. Estado em disco é sempre JSON válido mesmo se o processo for morto no meio de uma escrita (escreva em arquivo temporário e faça rename atômico).\n\nCOMO SE PROVA: `uv run pytest tests/test_config.py tests/test_estado.py tests/test_selecao.py -q`. Sorteio ponderado se prova estatisticamente (ex.: rodar N sorteios e checar que item de peso maior é escolhido com frequência maior, não que a distribuição é exata).\n\nARMADILHAS JÁ PAGAS: nenhuma ainda neste projeto — primeira rodada.",
+      "ferramentas": ["Read", "Glob", "Grep", "Edit", "Write", "Bash"]
+    },
+    {
+      "id": "operacao-sbc",
+      "nome": "Especialista Operação no SBC",
+      "descricao": "Quando a tarefa toca o loop de agendamento, logging, o entrypoint ou o deploy systemd",
+      "prompt": "Domínio: src/shopee_rodizio/ciclo.py, src/shopee_rodizio/__main__.py, src/shopee_rodizio/logging_config.py, systemd/shopee-rodizio.service.\n\nO QUE VIVE AQUI: `ciclo.py` orquestra um ciclo (seleciona itens via `selecao.py`, chama `boost.py` para cada um, grava resultado em `estado.py`, loga) e o loop externo (`time.sleep` entre ciclos, intervalo do TOML). `logging_config.py` configura `logging.handlers.RotatingFileHandler` (stdlib — não adicione lib de log). `shopee-rodizio.service` é a unit systemd (`Restart=on-failure`, roda `uv run python -m shopee_rodizio` ou o entrypoint equivalente).\n\nINVARIANTES: o processo NUNCA termina por exceção não tratada dentro do loop — todo erro de um ciclo (rede, API, token) é capturado, logado, e o loop segue para o próximo ciclo. Footprint de RAM em idle é a prioridade: nada de manter histórico inteiro em memória entre ciclos além do necessário para o sorteio do próximo.\n\nCOMO SE PROVA: `uv run pytest tests/test_ciclo.py -q` com `cliente_shopee`/`boost` mockados simulando sucesso, erro de rede e erro de API dentro do mesmo teste, checando que o loop não propaga a exceção. Para o systemd, o critério é de inspeção (arquivo `.service` sintaticamente correto e documentado no README), não execução — o Pi real não está disponível para o agente.\n\nARMADILHAS JÁ PAGAS: nenhuma ainda neste projeto — primeira rodada.",
+      "ferramentas": ["Read", "Glob", "Grep", "Edit", "Write", "Bash"]
+    }
+  ]
+}
