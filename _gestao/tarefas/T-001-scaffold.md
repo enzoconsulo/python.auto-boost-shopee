@@ -2,7 +2,7 @@
 id: T-001
 titulo: Scaffold do projeto Python (uv) com lint, teste e GUIA.md
 projeto: shopee-rodizio
-status: em-teste
+status: concluida
 prioridade: alta
 dependencias: []
 areas: [pyproject.toml, README.md, tests/test_scaffold.py, _gestao/GUIA.md]
@@ -101,8 +101,75 @@ Regenerado `_gestao/MAPA.md`.
 
 ## Verificação
 
+### Passada mecânica (sem modelo)
+
+- [julgado] `uv run ruff check .` roda sem erro (exit 0). — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `uv run pytest -q` roda e pelo menos 1 teste passa (exit 0). — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `pyproject.toml` declara `requests` como dependência de runtime e `ruff`+`pytest` como dependências de dev (inspecionável abrindo o arquivo). — sem comando declarado; fica para o verificador.
+- [julgado] README.md tem as seções "Como rodar" e "Como testar" preenchidas com comandos reais (não o placeholder original). — sem comando declarado; fica para o verificador.
+- [julgado] `_gestao/GUIA.md` está preenchido (sem o texto de instrução do template) com pelo menos as seções 1 e 2. — sem comando declarado; fica para o verificador.
+- [executado] Existe um commit no repositório do projeto contendo o scaffold. — `git log --oneline -1` → **PASSOU**
+
+Graus de prova: 1 executado(s), 5 para julgamento (de 6).
+
+### Ciclo 2
+
+- **[PASSOU] [executado] Critério 1: `uv run ruff check .` roda sem erro (exit 0)**
+  Comando: `& "C:\Users\enzoc\AppData\Roaming\Python\Python312\Scripts\uv.exe" run ruff check .`
+  Saída: `All checks passed!` (exit 0)
+
+- **[PASSOU] [executado] Critério 2: `uv run pytest -q` roda e pelo menos 1 teste passa (exit 0)**
+  Comando: `& "C:\Users\enzoc\AppData\Roaming\Python\Python312\Scripts\uv.exe" run pytest -q`
+  Saída: `.` (1 test); `1 passed in 0.05s` (exit 0)
+
+- **[PASSOU] [inspecionado] Critério 3: `pyproject.toml` declara `requests` como dependência de runtime e `ruff`+`pytest` como dependências de dev**
+  Comando: Inspeção de arquivo
+  Base: Arquivo `pyproject.toml` contém `dependencies = ["requests>=2.34.2"]` (runtime) e `[dependency-groups] dev = ["pytest>=9.1.1", "ruff>=0.16.4"]` (dev)
+
+- **[PASSOU] [inspecionado] Critério 4: README.md tem as seções "Como rodar" e "Como testar" preenchidas com comandos reais**
+  Comando: Inspeção de arquivo
+  Base: README.md contém seção "## Como rodar" com `uv run python -m shopee_rodizio` e seção "## Como testar" com `uv run pytest -q` e `uv run ruff check .`
+
+- **[PASSOU] [inspecionado] Critério 5: `_gestao/GUIA.md` está preenchido (sem o texto de instrução do template) com pelo menos as seções 1 e 2**
+  Comando: Inspeção de arquivo
+  Base: GUIA.md contém seção "1. Em uma tela" (stack Python/uv, rodar, testar) e seção "2. Onde fica o quê" (tabela de módulos config.py, estado.py, cliente_shopee.py, boost.py, selecao.py, ciclo.py, logging_config.py). Seções 3 e 4 presentes. Sem texto remanescente de instrução do template.
+
+- **[PASSOU] [executado] Critério 6: Existe um commit no repositório do projeto contendo o scaffold**
+  Comando: `git log --oneline -5`
+  Saída: `8e43db8 T-001: scaffold do projeto Python (uv) com lint, teste e GUIA.md`
+
+Suíte completa: 1 passou, 0 falharam — `& "C:\Users\enzoc\AppData\Roaming\Python\Python312\Scripts\uv.exe" run pytest -q`
+Graus de prova: 3 executados, 3 inspecionados, 0 julgados
+
+
 
 ## Conformidade
 
+Conformidade: cumpre
+
+- `uv run ruff check .` sem erro → confirmado pela Verificação (Ciclo 2, Critério 1: `All checks passed!`, exit 0); `[tool.ruff]` em `pyproject.toml:27-29` (`target-version = "py312"`, `line-length = 100`).
+- `uv run pytest -q` com ao menos 1 teste passando → `tests/test_scaffold.py` (importa `shopee_rodizio` e confere `hasattr(shopee_rodizio, "main")`); Verificação confirma `1 passed`.
+- `pyproject.toml` declara `requests` runtime e `ruff`+`pytest` dev → `pyproject.toml:9-11` (`dependencies = ["requests>=2.34.2"]`) e `pyproject.toml:25-28` (`[dependency-groups] dev = ["pytest>=9.1.1", "ruff>=0.16.4"]`).
+- README.md com "Como rodar"/"Como testar" reais → `README.md` (seções adicionadas, substituindo o placeholder do commit anterior; `git show a394a69:README.md` só tinha a descrição sem essas seções).
+- `_gestao/GUIA.md` preenchido, seções 1 e 2 presentes, sem texto de instrução do template → confirmado por diff contra `_sistema/templates/GUIA.md` (bloco `> Preencha as quatro seções...` ausente; seção 2 lista os 7 módulos do `_gestao/PLANO.md`).
+- Commit contendo o scaffold → `8e43db8` (mensagem "T-001: scaffold do projeto Python (uv)..."), com `9120c72` registrando o hash na própria tarefa.
+
+Objetivo satisfeito no espírito: fundação Python/uv com lint, teste e documentação mínima
+para as tarefas seguintes dependerem. `python -m shopee_rodizio` ainda falha por falta de
+`__main__.py` — mas o Contexto da tarefa autoriza explicitamente documentar o comando alvo
+antes do entrypoint existir (implementação fica para T-008). Escopo: `.gitignore` e
+`.python-version` são efeitos colaterais esperados de `uv init` / necessidade de excluir
+`.venv` e caches do controle de versão — não é scope creep.
 
 ## Revisão
+
+Aprovado sem ressalvas. Verificado no diff de `8e43db8`:
+- `pyproject.toml`: dependências, `[tool.ruff]` e `[project.scripts]` corretos; nenhuma
+  incoerência entre o entrypoint declarado (`shopee_rodizio:main`) e `src/shopee_rodizio/__init__.py:1-2`
+  (`main()` existe e é chamável).
+- `tests/test_scaffold.py`: teste trivial, mas legítimo (confere o contrato mínimo do
+  pacote em vez de só `assert True`).
+- Nenhuma lógica de negócio nesta tarefa — superfície de risco (bugs de correção/segurança)
+  é nula por natureza do escopo (scaffold).
+- `[menor]` `pyproject.toml:4` — `description = "Add your description here"` é o
+  placeholder default do `uv init`, não preenchido. Cosmético, não é critério de aceite.

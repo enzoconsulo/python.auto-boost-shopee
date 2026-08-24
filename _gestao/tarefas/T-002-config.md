@@ -2,11 +2,11 @@
 id: T-002
 titulo: Leitura e validação da configuração TOML
 projeto: shopee-rodizio
-status: backlog
+status: em-execucao
 prioridade: alta
 dependencias: [T-001]
 areas: [src/shopee_rodizio/config.py, config.example.toml, tests/test_config.py]
-tentativas: 0
+tentativas: 1
 agente: config-estado
 criada: 2026-08-24
 atualizada: 2026-08-24
@@ -70,6 +70,31 @@ errado.
 
 ## Notas de execução
 
+Implementado `src/shopee_rodizio/config.py`: dataclasses `ShopeeCredenciais`, `CicloConfig`,
+`CaminhosConfig`, `Item`, `Config` (imutáveis, `frozen=True`) e a função pública
+`carregar_config(caminho)` que lê o TOML via `tomllib` (stdlib) e valida. Exceção
+`ConfigError` sempre identifica o campo problemático na mensagem (ex.:
+`campo ausente: shopee.partner_key`, `itens[0].peso deve ser > 0 (item id=111)`).
+Validações implementadas: seções `[shopee]`/`[ciclo]`/`[caminhos]` completas,
+`intervalo_horas > 0`, `limite_slots > 0`, ao menos um `[[itens]]`, cada item com `id` e
+`peso`, `peso > 0`. `endpoint_boost` é lido como string simples — config.py não usa nem
+valida seu conteúdo, só garante que existe (uso fica para T-004/T-005, conforme
+DECISOES.md).
+
+Criado `config.example.toml` com os campos documentados (comentários explicando
+`intervalo_horas`, `limite_slots`, `endpoint_boost` e `peso`), TOML válido.
+
+Testes em `tests/test_config.py` escritos antes da implementação (vistos falhar por
+`ModuleNotFoundError` antes de `config.py` existir): config válida carrega estrutura
+tipada corretamente, `config.example.toml` do próprio projeto é válido, e 6 casos de
+config inválida (peso negativo, seção `[shopee]` incompleta, item sem `peso`, item sem
+`id`, `intervalo_horas` inválido, `limite_slots` inválido) — todos levantam `ConfigError`
+com mensagem identificando o campo.
+
+Nenhuma dependência nova (usa só `tomllib`/stdlib, conforme já decidido em
+`_gestao/DECISOES.md`).
+
+**Reproduzir:** `uv run pytest tests/test_config.py -q`
 
 ## Verificação
 

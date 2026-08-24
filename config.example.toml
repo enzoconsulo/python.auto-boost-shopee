@@ -1,0 +1,32 @@
+# Copie este arquivo para config.toml e preencha com suas credenciais reais.
+# Nenhum valor abaixo é válido — são apenas exemplos de formato.
+
+[shopee]
+partner_id = 0
+partner_key = "sua-partner-key"
+shop_id = 0
+access_token = "seu-access-token"
+refresh_token = "seu-refresh-token"
+
+[ciclo]
+# a cada quantas horas o rodízio roda um ciclo de impulsionamento
+intervalo_horas = 4
+# quantos itens podem ser impulsionados simultaneamente por ciclo
+limite_slots = 5
+# caminho do endpoint de boost — ver _gestao/DECISOES.md ("Endpoint de boost da
+# Shopee: incerteza registrada"); confirme com a documentação da sua conta antes de usar
+endpoint_boost = "/api/v2/product/boost_item"
+
+[caminhos]
+log = "shopee-rodizio.log"
+estado = "estado.json"
+
+# Um bloco [[itens]] por anúncio participante do rodízio. `peso` é relativo entre os
+# itens: quanto maior, mais frequentemente o item é sorteado para impulsionar.
+[[itens]]
+id = 123456789
+peso = 3
+
+[[itens]]
+id = 987654321
+peso = 1

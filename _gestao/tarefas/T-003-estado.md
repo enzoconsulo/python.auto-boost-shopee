@@ -2,7 +2,7 @@
 id: T-003
 titulo: Persistência de estado (histórico de boosts em JSON)
 projeto: shopee-rodizio
-status: backlog
+status: pronta
 prioridade: alta
 dependencias: [T-001]
 areas: [src/shopee_rodizio/estado.py, tests/test_estado.py]
