@@ -72,6 +72,8 @@ da stdlib).
 
 **Reproduzir:** `export PATH="/c/Users/enzoc/AppData/Roaming/Python/Python312/Scripts:$PATH" && uv run pytest tests/test_estado.py -q && uv run ruff check src/shopee_rodizio/estado.py`
 
+**Commit:** `786279b`
+
 ## Verificação
 
 
