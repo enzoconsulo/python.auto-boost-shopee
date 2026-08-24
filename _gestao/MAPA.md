@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 9120c72 · 2026-08-24 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 3398b7d · 2026-08-24 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -15,8 +15,8 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md
-src/shopee_rodizio/  __init__.py, config.py
-tests/  test_config.py, test_scaffold.py
+src/shopee_rodizio/  __init__.py, config.py, estado.py
+tests/  test_config.py, test_estado.py, test_scaffold.py
 ```
 
 ## Símbolos públicos por arquivo
@@ -36,6 +36,14 @@ tests/  test_config.py, test_scaffold.py
 - `_validar_secao(dados: dict, nome: str, campos: tuple[str, ...])`
 - `_validar_item(item: dict, indice: int)`
 
+### `src/shopee_rodizio/estado.py` — Persistência do histórico de impulsionamentos em JSON, com escrita atômica."""
+- `RegistroBoost` *(classe)*
+- `Estado` *(classe)*
+- `carregar_estado(caminho: str | Path)`
+- `registrar_boost(estado: Estado, item_id: int, sucesso: bool, mensagem: str)`
+- `historico_recente(estado: Estado, item_id: int)`
+- `_gravar(estado: Estado)`
+
 ### `tests/test_config.py`
 - `_escrever(tmp_path: Path, conteudo: str)`
 - `test_config_valida_carrega_estrutura_tipada(tmp_path)`
@@ -46,6 +54,14 @@ tests/  test_config.py, test_scaffold.py
 - `test_item_sem_id_levanta_erro(tmp_path)`
 - `test_intervalo_horas_invalido_levanta_erro(tmp_path)`
 - `test_limite_slots_invalido_levanta_erro(tmp_path)`
+
+### `tests/test_estado.py`
+- `test_primeira_execucao_sem_arquivo_previo_nao_lanca_erro(tmp_path)`
+- `test_registrar_boost_grava_e_carregar_estado_rel(tmp_path)`
+- `test_registrar_boost_acumula_multiplos_registros(tmp_path)`
+- `test_escrita_usa_arquivo_temporario_e_nao_sobra_tmp_orfao(tmp_path)`
+- `test_historico_recente_filtra_por_item_id(tmp_path)`
+- `test_historico_recente_sem_registros_devolve_lista_vazia(tmp_path)`
 
 ### `tests/test_scaffold.py`
 - `test_pacote_existe()`

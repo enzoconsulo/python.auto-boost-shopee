@@ -2,11 +2,11 @@
 id: T-003
 titulo: Persistência de estado (histórico de boosts em JSON)
 projeto: shopee-rodizio
-status: pronta
+status: em-teste
 prioridade: alta
 dependencias: [T-001]
 areas: [src/shopee_rodizio/estado.py, tests/test_estado.py]
-tentativas: 0
+tentativas: 1
 agente: config-estado
 criada: 2026-08-24
 atualizada: 2026-08-24
@@ -49,6 +49,28 @@ evitar repetir o mesmo item dois ciclos seguidos, se o peso permitir escolha).
 
 ## Notas de execução
 
+Testes escritos antes do código (`tests/test_estado.py`), rodados e vistos falhar
+(`ModuleNotFoundError: No module named 'shopee_rodizio.estado'`) antes de implementar
+`src/shopee_rodizio/estado.py`.
+
+Implementado `estado.py` com:
+- `RegistroBoost` (dataclass frozen: item_id, timestamp ISO 8601 UTC, sucesso, mensagem).
+- `Estado` (dataclass frozen: caminho + lista de `RegistroBoost`), imutável — cada
+  `registrar_boost` devolve um novo `Estado`, sem mutar o recebido.
+- `carregar_estado(caminho)`: lê o JSON; se o arquivo não existir, devolve histórico
+  vazio sem erro (primeira execução).
+- `registrar_boost(estado, item_id, sucesso, mensagem)`: acrescenta um registro (com
+  timestamp gerado em UTC) e grava em disco.
+- `historico_recente(estado, item_id)`: filtra o histórico em memória por `item_id`, em
+  ordem cronológica (usado por T-006).
+- `_gravar`: escrita atômica — grava em `<caminho>.tmp` (cria o diretório pai se
+  necessário) e faz `os.replace()` para o caminho final, para que uma queda de energia
+  no meio da escrita (SBC sem UPS) não corrompa `estado.json`.
+
+Nenhuma dependência nova (usa apenas `json`, `os`, `dataclasses`, `datetime`, `pathlib`
+da stdlib).
+
+**Reproduzir:** `export PATH="/c/Users/enzoc/AppData/Roaming/Python/Python312/Scripts:$PATH" && uv run pytest tests/test_estado.py -q && uv run ruff check src/shopee_rodizio/estado.py`
 
 ## Verificação
 
