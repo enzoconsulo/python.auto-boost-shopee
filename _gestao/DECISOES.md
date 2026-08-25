@@ -64,3 +64,19 @@ uma tarefa inteira quebrada por um caminho errado sem forma de corrigir sem rede
 configurável + smoke-test manual (T-010) transfere a confirmação final para quem tem
 acesso à conta real (o usuário), sem bloquear o resto da decomposição.
 **Quem:** planejador
+
+## 2026-08-25 — T-009: `verificar:` de arquivo texto deve usar `find`, não `grep`, nesta máquina
+**Decisão:** critérios `verificar:` que checam substring em arquivo (unidade systemd,
+config, etc.) usam `find /C "<string>" <arquivo>` (nativo do Windows, `System32`), nunca
+`grep`.
+**Motivo:** `grep` está na allowlist de binários da passada mecânica
+(`painel/servidor/src/pipeline/criterios.ts`), então passa na checagem e é efetivamente
+executado via `cmd.exe` — mas o processo do painel não tem `Git\usr\bin` no `PATH`, onde
+mora o `grep.exe` de verdade. O comando roda e quebra (`FALHOU`), em vez de degradar para
+`[julgado]` como acontece com binário fora da allowlist (ex.: `uv`, já registrado em
+`uv-nao-esta-no-path` na memória do agente). Isso girou T-009 por 3 ciclos com o conteúdo
+correto desde o Ciclo 1 — o defeito era só o comando do critério. `find.exe` do Windows
+(`FIND /C "string" arquivo`) tem semântica equivalente a `grep -c` (substring, sem regex,
+sai != 0 quando a contagem é zero) e é resolvido nativamente pelo `cmd.exe`, sem depender
+de nenhuma instalação POSIX-em-Windows. Confirmado via `cmd.exe /d /s /c` nesta máquina.
+**Quem:** planejador

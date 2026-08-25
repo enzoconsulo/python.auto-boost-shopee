@@ -2,15 +2,14 @@
 id: T-009
 titulo: Unidade systemd e documentação de deploy no BTT Pi
 projeto: shopee-rodizio
-status: em-teste
+status: em-execucao
 prioridade: media
 dependencias: [T-008]
 areas: [systemd/shopee-rodizio.service, README.md]
-tentativas: 2
+tentativas: 0
 agente: operacao-sbc
 criada: 2026-08-24
 atualizada: 2026-08-25
-ultima-reprovacao: mecanica
 ---
 
 ## Objetivo
@@ -43,7 +42,7 @@ Notas de execução e valide manualmente contra a documentação de unit files d
 ## Critérios de aceite
 - [ ] `systemd/shopee-rodizio.service` existe com as seções `[Unit]`, `[Service]`
       (incluindo `Restart=on-failure` e `ExecStart`) e `[Install]`.
-      `verificar: grep -c Restart=on-failure systemd/shopee-rodizio.service`
+      `verificar: find /C "Restart=on-failure" systemd/shopee-rodizio.service`
 - [ ] README.md tem uma seção de deploy com os 5 passos descritos no Contexto, com
       comandos reais (não placeholder).
 - [ ] `uv run ruff check .` continua sem erro após esta tarefa (nenhum código Python novo
@@ -129,6 +128,86 @@ Nenhum arquivo de código foi alterado neste ciclo.
 
 **Commit:** `527b7cf`
 
+**Fora das `areas` (detectado pelo motor):** test-fase2.log
+
+Estes arquivos foram alterados por esta etapa e estão FORA das `areas` que a
+tarefa declarou. Não entram no commit da tarefa, então não aparecem no diff que
+o revisor julga — confira se a alteração era legítima (e a `area` é que estava
+incompleta) ou se é sobra que precisa ser desfeita.
+
+### Ciclo 3
+
+Impedimento: critério com comando impossível — `verificar: grep -c Restart=on-failure systemd/shopee-rodizio.service` (linha 46) usa `grep`, que não resolve no shell não-interativo (PowerShell/cmd) da passada mecânica; troque por `findstr` ou `Select-String` (comando abaixo). O conteúdo entregue está correto e não é o que reprova.
+
+**Causa-raiz (uma frase):** a única reprovação é mecânica, e vem do binário `grep` ausente no PATH do shell da passada mecânica — não de defeito no `.service` nem no README.
+
+Este é o caso exato da Regra 0 do protocolo (nascida da T-030 do banco-imobiliario): os
+Ciclos 1 e 2 diagnosticaram a causa certa, mas só como prosa nas Notas, e a tarefa girou
+porque a correção do `verificar:` é autoridade do **planejador**, não do executor — o canal
+para isso é esta linha `Impedimento:`, que o motor lê e roteia. Não alterei critério nem
+código; a `area` de conteúdo já satisfaz todos os critérios desde o Ciclo 1.
+
+Conteúdo confirmado correto NESTE ciclo (não é o que reprova):
+- `grep -c "Restart=on-failure" systemd/shopee-rodizio.service` (Git Bash) → `1`
+- `findstr /C:"Restart=on-failure" systemd\shopee-rodizio.service` (PowerShell) → linha impressa, saída `0`
+- `(Select-String -Path systemd\shopee-rodizio.service -Pattern 'Restart=on-failure').Count` → `1`
+- `.venv\Scripts\python.exe -m ruff check .` → `All checks passed!` (saída 0)
+- README.md tem a seção "Deploy no BTT Pi (systemd)" com os 5 passos do Contexto.
+
+**Correção sugerida ao planejador** (troca só o comando `verificar:` do 1º critério; o texto
+do critério e o `.service` ficam como estão):
+
+```
+verificar: findstr /C:"Restart=on-failure" systemd\shopee-rodizio.service
+```
+
+Mesma classe já registrada para `uv` neste projeto; ao redigir novos `verificar:`, prefira
+`findstr`/`Select-String` a binários POSIX (`grep`, `uv`) que só existem dentro do Git for
+Windows e não estão no PATH do shell não-interativo desta máquina.
+
+Nenhum arquivo de código ou de conteúdo (`.service`, README) foi alterado neste ciclo — a
+entrega já estava certa; o que falta é fora do meu escopo (o comando do critério).
+
+**Aproveitamento:** 100% do trabalho dos Ciclos 1–2 aproveitado (conteúdo intacto e
+correto); nada refeito. Este ciclo só escalou o diagnóstico pelo canal certo.
+
+**Fora das `areas` (detectado pelo motor):** test-fase2.log
+
+Estes arquivos foram alterados por esta etapa e estão FORA das `areas` que a
+tarefa declarou. Não entram no commit da tarefa, então não aparecem no diff que
+o revisor julga — confira se a alteração era legítima (e a `area` é que estava
+incompleta) ou se é sobra que precisa ser desfeita.
+
+### Resolução do Impedimento (planejador)
+
+Diagnóstico do Ciclo 3 confirmado: o único defeito era o comando do 1º critério, não o
+conteúdo entregue (`.service` e README corretos desde o Ciclo 1).
+
+`grep` está na allowlist de binários da passada mecânica (`BINARIOS_PERMITIDOS` em
+`painel/servidor/src/pipeline/criterios.ts`), então o comando passou pela checagem e foi
+efetivamente executado via `cmd.exe` (`shell: true` no Windows) — mas o processo do painel
+não tem `Git\usr\bin` no seu `PATH`, só o `grep` de verdade mora lá. Por isso a reprovação
+veio como `FALHOU` (comando rodou e quebrou), não como `binario-nao-permitido` (que teria
+degradado para `[julgado]` sem custar o ciclo) — diferente do 3º critério (`uv run ruff
+check .`), que degrada normalmente porque `uv` não está na allowlist.
+
+**Correção aplicada:** troquei o comando do 1º critério (linha 46) por
+`find /C "Restart=on-failure" systemd/shopee-rodizio.service` — `find.exe` é nativo do
+Windows (`System32`, sempre no `PATH`, não depende do Git for Windows), está na mesma
+allowlist (`find`), não usa nenhum metacaractere proibido, e tem semântica equivalente a
+`grep -c` para este caso (substring, sem regex, que é tudo que o critério precisa): conta
+ocorrências e sai != 0 quando a contagem é zero. Confirmado nesta máquina via `cmd.exe /d
+/s /c` (mesma invocação que a passada mecânica usa no Windows):
+- `find /C "Restart=on-failure" systemd/shopee-rodizio.service` → imprime `...: 1`, saída 0.
+- `find /C "NaoExisteIsso123" systemd/shopee-rodizio.service` → imprime `...: 0`, saída 1.
+
+Texto do critério, `.service` e README **não foram alterados** — só o comando `verificar:`.
+`tentativas` zerada no frontmatter (Regra 0 do protocolo: é o planejador quem zera ao
+reescrever a tarefa) e `ultima-reprovacao` removida.
+
+Decisão de projeto registrada em `_gestao/DECISOES.md` (2026-08-25) para não repetir o
+mesmo desperdício em tarefas futuras.
+
 ## Verificação
 
 ### Passada mecânica (sem modelo)
@@ -145,6 +224,22 @@ ou externo, um programa oper�vel ou um arquivo em lotes.
 - [julgado] `uv run ruff check .` continua sem erro após esta tarefa (nenhum código Python novo quebrando lint). — comando recusado: binario-nao-permitido; fica para o verificador.
 
 Graus de prova: 2 executado(s), 2 para julgamento (de 4).
+
+### Passada mecânica (sem modelo)
+
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
+- [executado] `systemd/shopee-rodizio.service` existe com as seções `[Unit]`, `[Service]` (incluindo `Restart=on-failure` e `ExecStart`) e `[Install]`. — `grep -c Restart=on-failure systemd/shopee-rodizio.service` → **FALHOU**
+
+```
+'grep' n�o � reconhecido como um comando interno
+ou externo, um programa oper�vel ou um arquivo em lotes.
+```
+
+- [julgado] README.md tem uma seção de deploy com os 5 passos descritos no Contexto, com comandos reais (não placeholder). — sem comando declarado; fica para o verificador.
+- [julgado] `uv run ruff check .` continua sem erro após esta tarefa (nenhum código Python novo quebrando lint). — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 2 executado(s), 2 para julgamento (de 4).
+
 
 
 
