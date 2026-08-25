@@ -2,7 +2,7 @@
 id: T-007
 titulo: Log em arquivo com rotação
 projeto: shopee-rodizio
-status: em-revisao
+status: concluida
 prioridade: media
 dependencias: [T-002]
 areas: [src/shopee_rodizio/logging_config.py, tests/test_logging_config.py]
@@ -84,5 +84,26 @@ Graus de prova: 3 executados
 
 ## Conformidade
 
+### Ciclo 1
+
+Conformidade: cumpre
+
+- `RotatingFileHandler` da stdlib configurando o logger `"shopee_rodizio"` → `src/shopee_rodizio/logging_config.py:31-41`, coberto por `tests/test_logging_config.py:test_configurar_cria_arquivo_de_log_com_mensagem` e `test_configurar_rotaciona_quando_arquivo_excede_max_bytes` (rotação por tamanho gera `.1`).
+- Assinatura `configurar(caminho_log: str, max_bytes=..., backup_count=...) -> None` bate exatamente com a sugerida no Contexto da tarefa (`logging_config.py:20-24`).
+- Formato de linha com timestamp, nível e mensagem (RF-07, auditável com `tail -f`) → `_FORMATO = "%(asctime)s %(levelname)s %(message)s"` com `datefmt="%Y-%m-%d %H:%M:%S"` (`logging_config.py:9-10`), coberto por `test_configurar_formato_de_linha_inclui_timestamp_nivel_e_mensagem`.
+- Padrão razoável para SBC com pouco espaço (`max_bytes=2 MiB`, `backup_count=3`, ~8 MiB de teto) documentado nas Notas de execução, conforme pedido explicitamente pelo Contexto.
+- Nenhuma dependência nova além da stdlib (`logging`, `logging.handlers`, `pathlib`) — confirmado no diff e sem entrada nova em `DECISOES.md`, correto pois não há decisão de biblioteca a registrar.
+- Escopo: tocou só `src/shopee_rodizio/logging_config.py` e `tests/test_logging_config.py`, exatamente as `areas` declaradas no frontmatter — nenhuma sobra.
+- Critério 1 (`pytest tests/test_logging_config.py -q`, incluindo o teste de rotação) → reexecutei: 5 passed. Critério 2 (`ruff check src/shopee_rodizio/logging_config.py`) → reexecutei: All checks passed!. Ambos batem com o que o testador registrou na Verificação.
 
 ## Revisão
+
+### Ciclo 1
+
+Aprovado sem ressalvas. Verifiquei o diff inteiro de `cbcf02d`:
+
+- `configurar` é idempotente por fechar e remover handlers antigos antes de adicionar o novo (`logging_config.py:34-37`) — chamada dupla no mesmo processo (cenário real: um teste futuro ou um restart de config em `T-008`) não duplica linhas de log, confirmado por `test_configurar_chamado_duas_vezes_nao_duplica_handlers`.
+- `caminho.parent.mkdir(parents=True, exist_ok=True)` cobre o caso de `config.caminhos.log` apontar para um diretório ainda não criado no primeiro boot do serviço no SBC — cenário plausível dado que é 24/7 num sistema recém-instalado.
+- `encoding="utf-8"` explícito no `RotatingFileHandler` evita o padrão `cp1252` do Windows (ambiente de desenvolvimento atual), o que teria corrompido mensagens com acentos.
+- `logger.propagate` fica no padrão (`True`), mas como nada no projeto chama `logging.basicConfig` nem adiciona handler ao logger raiz, não há duplicação de saída — não é achado.
+- Suíte completa (40 passed) e lint do projeto seguem verdes após a mudança.

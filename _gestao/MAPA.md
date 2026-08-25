@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: ae44cf6 · 2026-08-25 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 7da272e · 2026-08-25 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -15,8 +15,8 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
-src/shopee_rodizio/  __init__.py, boost.py, cliente_shopee.py, config.py, estado.py, logging_config.py, selecao.py
-tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_logging_config.py, test_scaffold.py, test_selecao.py
+src/shopee_rodizio/  __init__.py, __main__.py, boost.py, ciclo.py, cliente_shopee.py, config.py, estado.py, logging_config.py, selecao.py
+tests/  test_boost.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_logging_config.py, test_scaffold.py, test_selecao.py
 ```
 
 ## Símbolos públicos por arquivo
@@ -24,9 +24,18 @@ tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, t
 ### `src/shopee_rodizio/__init__.py`
 - `main()`
 
+### `src/shopee_rodizio/__main__.py` — Entrypoint do serviço: carrega a config, configura o log e entra no loop de rodízio.
+- `_analisar_args(argv: list[str])`
+- `_cliente_de(config: Config)`
+- `executar_loop(caminho_config: str, *, max_iteracoes: int | None = None)`
+- `main(argv: list[str] | None = None)`
+
 ### `src/shopee_rodizio/boost.py` — Chamada do endpoint de impulsionamento de UM item, via `cliente_shopee.py`.
 - `ResultadoBoost` *(classe)*
 - `impulsionar(cliente: ClienteShopee, config: Config, item_id: int)`
+
+### `src/shopee_rodizio/ciclo.py` — Orquestração de um ciclo de rodízio: seleciona itens, impulsiona cada um via
+- `executar_ciclo(cliente: ClienteShopee, config: Config, estado: Estado)`
 
 ### `src/shopee_rodizio/cliente_shopee.py` — Cliente HTTP da Shopee Open Platform API v2: assinatura HMAC-SHA256, chamada
 - `Token` *(classe)*
@@ -69,6 +78,19 @@ tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, t
 - `test_impulsionar_usa_endpoint_e_shop_id_da_config()`
 - `test_impulsionar_erro_da_api_devolve_resultado_negativo_sem_lancar()`
 - `test_impulsionar_erro_sem_mensagem_devolve_mensagem_generica()`
+
+### `tests/test_ciclo.py` — Testes de `ciclo.py`: orquestração de um ciclo de rodízio, sem depender de rede real."""
+- `_config(itens: list[Item], limite_slots: int = 2)`
+- `_estado(tmp_path)`
+- `_itens(*ids: int)`
+- `test_ciclo_com_todos_os_boosts_com_sucesso_grava_historico(tmp_path)`
+- `test_ciclo_com_boost_falhando_por_erro_de_api_nao_lanca_e_grava_falha(tmp_path)`
+- `test_ciclo_com_excecao_inesperada_de_rede_nao_escapa_e_grava_falha(tmp_path)`
+- `test_ciclo_respeita_limite_de_slots_e_seleciona_via_selecao(tmp_path)`
+- `test_ciclo_sem_itens_selecionados_nao_grava_nada(tmp_path)`
+- `_config_arquivo(tmp_path)`
+- `test_loop_principal_roda_numero_limitado_de_iteracoes_sem_quebrar(tmp_path, _config_arquivo)`
+- `test_loop_principal_continua_apos_ciclo_lancar_excecao_inesperada(tmp_path, _config_arquivo)`
 
 ### `tests/test_cliente_shopee.py`
 - `_cliente(**overrides)`
