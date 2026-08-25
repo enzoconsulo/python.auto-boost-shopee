@@ -4,10 +4,23 @@ Serviço leve, para rodar num BigTreeTech Pi 1.2.1 (SBC do Klipper), que faz rod
 automático de impulsionamento de anúncios na Shopee (Shopee Open Platform), a cada 4
 horas, respeitando um peso configurável por item.
 
+## Funcionalidades
+
+- Sorteio ponderado (sem reposição) dos itens de `[[itens]]` em `config.toml` a cada
+  ciclo — item com `peso` maior é escolhido com mais frequência.
+- Renovação automática do `access_token` da Shopee antes de expirar, com o token
+  renovado persistido em disco (`token.json`) para sobreviver a um restart do serviço.
+- Histórico de boosts (sucesso/falha) persistido em `estado.json`, escrita atômica.
+- Log em arquivo com rotação por tamanho.
+- Falha em um item (erro da API, exceção inesperada, falha ao gravar histórico) nunca
+  derruba o processo — é registrada e o rodízio segue.
+- Unidade systemd pronta para deploy 24/7 (`Restart=on-failure`).
+- Script de smoke-test manual para confirmar o endpoint de boost contra credenciais reais.
+
 ## Como rodar
 
 ```
-uv run python -m shopee_rodizio
+uv run python -m shopee_rodizio [caminho/para/config.toml]   # padrão: ./config.toml
 ```
 
 ## Como testar
