@@ -3,3 +3,9 @@
 .ruff_cache/
 __pycache__/
 *.pyc
+
+# credenciais/estado reais do usuário — nunca versionar
+config.toml
+token.json
+estado.json
+*.log

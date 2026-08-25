@@ -1,9 +1,8 @@
 # Unidade systemd do shopee-rodizio. Instalação: ver README.md, seção "Deploy no BTT Pi".
 #
-# `User`/`Group` e os caminhos abaixo assumem o usuário `pi` e o projeto clonado em
-# `/home/pi/shopee-rodizio` — ajuste às três linhas marcadas se o seu SBC usa outro
-# usuário/caminho (o mesmo usuário que já roda o Klipper costuma servir, mas não é
-# obrigatório).
+# `User`/`Group` e os caminhos abaixo assumem o usuário `biqu` (padrão de fábrica da
+# imagem BTT Pi/CB1) e o projeto clonado em `/home/biqu/shopee-rodizio` — ajuste às três
+# linhas marcadas se o seu SBC usa outro usuário/caminho.
 
 [Unit]
 Description=shopee-rodizio - rodizio automatico de impulsionamento de anuncios Shopee
@@ -12,10 +11,10 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-Group=pi
-WorkingDirectory=/home/pi/shopee-rodizio
-ExecStart=/home/pi/.local/bin/uv run python -m shopee_rodizio /home/pi/shopee-rodizio/config.toml
+User=biqu
+Group=biqu
+WorkingDirectory=/home/biqu/shopee-rodizio
+ExecStart=/home/biqu/.local/bin/uv run python -m shopee_rodizio /home/biqu/shopee-rodizio/config.toml
 Restart=on-failure
 RestartSec=10
 Environment=PYTHONUNBUFFERED=1
