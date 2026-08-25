@@ -60,7 +60,7 @@ Nenhuma dependência nova.
 
 **Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_boost.py -q`
 
-**Commit:** `PENDENTE`
+**Commit:** `d6b2ba2`
 
 ## Verificação
 
