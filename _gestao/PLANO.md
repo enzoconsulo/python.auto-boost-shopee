@@ -17,7 +17,7 @@ Meta: ciclo de rodízio completo e funcional de ponta a ponta contra a API real 
 (autenticação com renovação de token, chamada de boost, sorteio ponderado, orquestração e
 log), executável manualmente (`uv run python -m shopee_rodizio`) mesmo antes do deploy
 como serviço.
-Marco: pendente
+Marco: aprovado 2026-08-25
 Tarefas: T-004, T-005, T-006, T-007, T-008
 
 ## Fase 3 — Refinamento

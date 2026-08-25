@@ -2,7 +2,7 @@
 id: T-009
 titulo: Unidade systemd e documentação de deploy no BTT Pi
 projeto: shopee-rodizio
-status: em-teste
+status: em-execucao
 prioridade: media
 dependencias: [T-008]
 areas: [systemd/shopee-rodizio.service, README.md]
@@ -10,6 +10,7 @@ tentativas: 1
 agente: operacao-sbc
 criada: 2026-08-24
 atualizada: 2026-08-25
+ultima-reprovacao: mecanica
 ---
 
 ## Objetivo
@@ -87,7 +88,31 @@ grep -c "Restart=on-failure" systemd/shopee-rodizio.service
 
 **Commit:** `9eae83f`
 
+**Fora das `areas` (detectado pelo motor):** test-fase2.log
+
+Estes arquivos foram alterados por esta etapa e estão FORA das `areas` que a
+tarefa declarou. Não entram no commit da tarefa, então não aparecem no diff que
+o revisor julga — confira se a alteração era legítima (e a `area` é que estava
+incompleta) ou se é sobra que precisa ser desfeita.
+
+
 ## Verificação
+
+### Passada mecânica (sem modelo)
+
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
+- [executado] `systemd/shopee-rodizio.service` existe com as seções `[Unit]`, `[Service]` (incluindo `Restart=on-failure` e `ExecStart`) e `[Install]`. — `grep -c Restart=on-failure systemd/shopee-rodizio.service` → **FALHOU**
+
+```
+'grep' n�o � reconhecido como um comando interno
+ou externo, um programa oper�vel ou um arquivo em lotes.
+```
+
+- [julgado] README.md tem uma seção de deploy com os 5 passos descritos no Contexto, com comandos reais (não placeholder). — sem comando declarado; fica para o verificador.
+- [julgado] `uv run ruff check .` continua sem erro após esta tarefa (nenhum código Python novo quebrando lint). — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 2 executado(s), 2 para julgamento (de 4).
+
 
 
 ## Conformidade

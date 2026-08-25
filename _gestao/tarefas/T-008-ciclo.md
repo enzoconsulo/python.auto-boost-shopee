@@ -2,7 +2,7 @@
 id: T-008
 titulo: Orquestração do ciclo de rodízio e loop de agendamento
 projeto: shopee-rodizio
-status: em-teste
+status: concluida
 prioridade: alta
 dependencias: [T-003, T-005, T-006, T-007]
 areas: [src/shopee_rodizio/ciclo.py, src/shopee_rodizio/__main__.py, tests/test_ciclo.py]
@@ -10,7 +10,6 @@ tentativas: 3
 agente: operacao-sbc
 criada: 2026-08-24
 atualizada: 2026-08-25
-ultima-reprovacao: revisor
 ---
 
 ## Objetivo
@@ -199,27 +198,69 @@ apontados por ele (não é escopo novo).
 
 - **[PASSOU] [executado] Critério 1: todos os testes de `test_ciclo.py` passam, incluindo a persistência do token**
   Comando: `.venv\Scripts\python.exe -m pytest tests/test_ciclo.py -q`
-  Saída: `13 passed in 0.48s` — inclui os 7 testes originais + 6 testes novos do ciclo 2 que verificam:
-    - `test_persistir_e_carregar_token_faz_roundtrip` — round-trip do arquivo de token
-    - `test_carregar_token_inexistente_devolve_none` — carregamento seguro
-    - `test_cliente_de_usa_token_persistido_em_vez_do_config_apos_restart` — restart seguro (Token antigo será descartado)
-    - `test_cliente_de_sem_token_persistido_usa_config` — fallback para config se sem persistência
-    - `test_loop_persiste_token_renovado_apos_ciclo` — gravação de token renovado
-    - `test_loop_nao_grava_token_quando_nao_ha_renovacao` — evita I/O desnecessário
+  Saída: `15 passed in 0.54s` — inclui 7 testes originais (ciclo, loop) + 6 testes de persistência do token (ciclo 2) + 2 testes novos do ciclo 3 (falha de I/O, cliente real sem redundância).
 
 - **[PASSOU] [executado] Critério 2: `--help` não lança traceback e mostra uso esperado**
   Comando: `.venv\Scripts\python.exe -m shopee_rodizio --help`
-  Saída: mostra `usage: python -m shopee_rodizio [-h] [config]`, descrição e argumentos, sem erro.
+  Saída: mostra `usage: python -m shopee_rodizio [-h] [config]`, descrição do programa e argumentos, sem erro.
 
 - **[PASSOU] [executado] Critério 3: `ruff check` dos dois arquivos passou**
   Comando: `.venv\Scripts\python.exe -m ruff check src/shopee_rodizio/ciclo.py src/shopee_rodizio/__main__.py`
   Saída: `All checks passed!`
 
-Suíte completa: 53 passed — `.venv\Scripts\python.exe -m pytest -q`
-Mutação: `_persistir_token` desabilitado → testes `test_persistir_e_carregar_token_faz_roundtrip` e `test_loop_persiste_token_renovado_apos_ciclo` FALHAM (esperado) — prova que os testes novos realmente detectam a implementação
-Graus de prova: 4 executados, 0 inspecionados, 0 julgados
+Suíte completa: 55 passed — `.venv\Scripts\python.exe -m pytest -q` (sem regressão)
+Mutação: ao desabilitar `os.replace(tmp, caminho)` em `_persistir_token`, os testes `test_persistir_e_carregar_token_faz_roundtrip` e `test_loop_persiste_token_renovado_apos_ciclo` falham com a asserção esperada (`assert None == Token(...)`), provando que os testes novos realmente detectam o comportamento esperado.
+Implementação validada: 
+  - `ciclo.py:36-44` — `registrar_boost` em try-except próprio (RF-02 gap fechado)
+  - `__main__.py:115` — `token_anterior = cliente.token` (evita redundância na primeira subida)
+  - `__main__.py:122-126` — persistência do token renovado
+Graus de prova: 3 executados (critérios de aceite), 1 executado (mutação)
+
 
 ## Conformidade
+
+### Ciclo 3
+
+Conformidade: cumpre
+
+Confirmação por reexecução (não apenas leitura do diff):
+- `.venv\Scripts\python.exe -m pytest tests/test_ciclo.py -q` → 15 passed.
+- `.venv\Scripts\python.exe -m pytest -q` → 55 passed (bate com o relatado; sem regressão).
+- `.venv\Scripts\python.exe -m ruff check src/shopee_rodizio/ciclo.py src/shopee_rodizio/__main__.py` → All checks passed!.
+- `.venv\Scripts\python.exe -m shopee_rodizio --help` → mostra uso, sem traceback.
+- `git log --oneline -- src/shopee_rodizio/__main__.py src/shopee_rodizio/ciclo.py` mostra o
+  commit `21df47f` tocando os dois arquivos, e `git status` não mostra mais `M` neles — o
+  achado `crítica` do Ciclo 2 (conteúdo só no working tree) está fechado: o conteúdo agora
+  está em `git show 21df47f`, fonte de verdade do pipeline.
+
+Os três critérios de aceite seguem cumpridos (ver Conformidade dos ciclos anteriores, que
+não mudou), e os dois achados pendentes do Ciclo 2 foram fechados no conteúdo, não só
+prometidos nas Notas:
+- **[importante] fechado** — `src/shopee_rodizio/ciclo.py:36-44`: `registrar_boost` agora
+  roda dentro do seu próprio `try/except Exception`, separado do `try` que envolve
+  `boost.impulsionar` (linhas 29-34). Uma falha de I/O ao gravar o histórico é logada e o
+  item seguinte é processado (`continue`) — a exceção não escapa mais de `executar_ciclo`,
+  então o `except Exception` de `__main__.py:127` (que fica ANTES do bloco de persistência
+  do token, linha 122) deixa de ser alcançado nesse cenário: o bloco
+  `if cliente.token != token_anterior: _persistir_token(...)` (linhas 122-126) é sempre
+  executado quando `executar_ciclo` devolve normalmente. Testei o cenário fim a fim: com
+  `boost.impulsionar` mockado para simular renovação e `registrar_boost` mockado para
+  lançar `OSError`, `executar_ciclo` devolve o `Estado` sem lançar
+  (`tests/test_ciclo.py:test_ciclo_com_falha_ao_gravar_historico_nao_escapa`) — cobre
+  exatamente o gap apontado.
+- **[menor] fechado** — `src/shopee_rodizio/__main__.py:115`: `token_anterior = cliente.token`
+  (era `_carregar_token(caminho_token)`, que podia ser `None` mesmo quando `cliente.token`
+  já era um `Token` construído do config). Reli `_cliente_de` (linhas 83-95): com
+  `token=None`, ele sempre devolve um `Token` não-`None`; comparar contra o `None` cru de
+  `_carregar_token` gerava falso positivo de "renovação" na primeira subida. Com
+  `token_anterior = cliente.token`, a primeira subida sem `token.json` não grava mais nada
+  se não houve renovação real. O novo teste
+  `test_loop_primeira_subida_sem_renovacao_nao_grava_token_com_cliente_real` usa o
+  `_cliente_de` REAL (não mockado) — cobre exatamente o caso que o teste anterior
+  (`test_loop_nao_grava_token_quando_nao_ha_renovacao`, com `_ClienteFake`) não pegava,
+  como o achado original observou.
+- Escopo: só `ciclo.py`, `__main__.py` e `tests/test_ciclo.py` foram tocados — dentro das
+  `areas` declaradas da tarefa; nenhuma sobra.
 
 ### Ciclo 1
 
@@ -276,6 +317,33 @@ ao que o código faz; o veredito do ciclo (abaixo) é reprovação, motivada só
 de processo — não peço reabrir a implementação.
 
 ## Revisão
+
+### Ciclo 3
+
+Aprovado sem ressalvas. Os três achados do Ciclo 2 (crítica de processo + importante +
+menor) estão todos fechados no conteúdo do commit `21df47f`, confirmado por reexecução
+(ver Conformidade acima) e não só pela leitura do diff:
+
+- O commit ausente (achado `crítica`) foi corrigido: `21df47f` está no histórico (`git log`
+  confirma) tocando `__main__.py`, `ciclo.py` e `tests/test_ciclo.py`; `git status` não
+  mostra mais o conteúdo como `M` na árvore de trabalho.
+- `ciclo.py:36-44` — o `try/except` próprio ao redor de `registrar_boost` está correto: não
+  há `raise` residual, o `continue` evita usar `sucesso`/`mensagem` obsoletos do item que
+  falhou ao gravar, e `estado` permanece com o último valor bem-sucedido (não é
+  sobrescrito por um retorno parcial, já que a atribuição `estado = registrar_boost(...)`
+  só se completa se a chamada não lançar).
+- `__main__.py:110-115` — `token_anterior = cliente.token` é consistente com o `Token`
+  `frozen=True` (`cliente_shopee.py:26-30`): comparação por valor, não identidade;
+  cobre tanto a primeira subida (sem `token.json`) quanto o restart (com `token.json`
+  existente) sem gravação redundante nem perdida.
+- Nenhum achado novo neste ciclo: revisei o diff inteiro (`git show 21df47f`), não só os
+  três pontos apontados — não há efeito colateral introduzido pelas correções (ex.: a
+  ordem `try/except(boost) → try/except(registrar_boost) → log` não deixa nenhum item sem
+  tentativa de registro; o `continue` não pula itens seguintes do loop `for`, só o log
+  final do item corrente).
+- Reexecutado: `pytest tests/test_ciclo.py -q` → 15 passed; `pytest -q` (suíte completa) →
+  55 passed; `ruff check ciclo.py __main__.py` → All checks passed; `python -m shopee_rodizio
+  --help` → mostra uso, sem traceback.
 
 ### Ciclo 2
 
