@@ -2,7 +2,7 @@
 id: T-007
 titulo: Log em arquivo com rotação
 projeto: shopee-rodizio
-status: em-teste
+status: em-revisao
 prioridade: media
 dependencias: [T-002]
 areas: [src/shopee_rodizio/logging_config.py, tests/test_logging_config.py]
@@ -65,13 +65,20 @@ pedido pela tarefa).
 
 ## Verificação
 
-### Passada mecânica (sem modelo)
+### Ciclo 2
 
-- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
-- [julgado] `uv run pytest tests/test_logging_config.py -q` → todos os testes passam, incluindo um teste que escreve várias mensagens forçando rotação (arquivo pequeno de propósito no teste) e confirma que um arquivo `.1` (backup) é criado. — comando recusado: binario-nao-permitido; fica para o verificador.
-- [julgado] `uv run ruff check src/shopee_rodizio/logging_config.py` → sem erros. — comando recusado: binario-nao-permitido; fica para o verificador.
+- **[PASSOU] [executado] Critério 1: `uv run pytest tests/test_logging_config.py -q` → todos os testes passam, incluindo um teste que escreve várias mensagens forçando rotação (arquivo pequeno de propósito no teste) e confirma que um arquivo `.1` (backup) é criado.**
+  Comando: `.venv\Scripts\python.exe -m pytest tests/test_logging_config.py -q`
+  Saída: `.....` (5 passed in 0.51s)
 
-Graus de prova: 1 executado(s), 2 para julgamento (de 3).
+- **[PASSOU] [executado] Critério 2: `uv run ruff check src/shopee_rodizio/logging_config.py` → sem erros.**
+  Comando: `.venv\Scripts\python.exe -m ruff check src/shopee_rodizio/logging_config.py`
+  Saída: `All checks passed!`
+
+Suíte completa: 40 passed — `.venv\Scripts\python.exe -m pytest tests/ -q`
+Graus de prova: 3 executados
+
+
 
 
 
