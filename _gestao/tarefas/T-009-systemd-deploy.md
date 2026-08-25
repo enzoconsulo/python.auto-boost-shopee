@@ -2,11 +2,11 @@
 id: T-009
 titulo: Unidade systemd e documentação de deploy no BTT Pi
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: media
 dependencias: [T-008]
 areas: [systemd/shopee-rodizio.service, README.md]
-tentativas: 1
+tentativas: 2
 agente: operacao-sbc
 criada: 2026-08-24
 atualizada: 2026-08-25
@@ -95,6 +95,37 @@ tarefa declarou. Não entram no commit da tarefa, então não aparecem no diff q
 o revisor julga — confira se a alteração era legítima (e a `area` é que estava
 incompleta) ou se é sobra que precisa ser desfeita.
 
+### Ciclo 2
+
+A reprovação mecânica do primeiro critério (`grep -c Restart=on-failure
+systemd/shopee-rodizio.service`) não aponta defeito de conteúdo — aponta ausência da
+ferramenta `grep` no shell que rodou a passada mecânica. Confirmado nesta máquina:
+
+- Via Git Bash (a shell deste agente): `grep -c "Restart=on-failure"
+  systemd/shopee-rodizio.service` → `1`, saída 0. O arquivo satisfaz o critério.
+- Via PowerShell (shell provável da passada mecânica, já que a mensagem de erro
+  registrada — `'grep' não é reconhecido como um comando interno ou externo...` — é a
+  mensagem padrão do `cmd.exe`/PowerShell do Windows, não do Git Bash): `Get-Command grep`
+  não resolve. `C:\Program Files\Git\cmd` está no `PATH`, mas só tem `git.exe` — o `grep`
+  de verdade mora em `Git\usr\bin`, que não está no `PATH` do shell não-interativo.
+
+Isto é a mesma classe de problema já registrada para `uv` neste projeto (`uv` também não
+está no `PATH` desta máquina fora do Git Bash) — só que agora afeta um comando `verificar:`
+de critério, não um comando de execução do agente. Não alterei `systemd/shopee-rodizio.service`
+nem o texto do critério (não é meu escopo mudar critério de aceite): o conteúdo já estava
+certo desde o Ciclo 1. Reproduza com Git Bash, ou com o PowerShell abaixo, que dá o mesmo
+resultado sem depender de `grep` estar no `PATH`:
+
+**Reproduzir (Git Bash):** `grep -c "Restart=on-failure" systemd/shopee-rodizio.service`
+**Reproduzir (PowerShell, equivalente):** `(Select-String -Path
+systemd\shopee-rodizio.service -Pattern 'Restart=on-failure').Count`
+
+Sugestão para o orquestrador/planejador: comandos `verificar:` neste projeto devem evitar
+binários POSIX (`grep`, e por extensão `uv`) que não estão no `PATH` do shell não-interativo
+desta máquina — preferir `Select-String`/`findstr` (Windows) ou confirmar que a passada
+mecânica roda via Git Bash.
+
+Nenhum arquivo de código foi alterado neste ciclo.
 
 ## Verificação
 
