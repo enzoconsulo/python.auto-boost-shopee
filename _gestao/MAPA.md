@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 7da272e · 2026-08-25 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 888bcb5 · 2026-08-25 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -15,18 +15,27 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
+scripts/  smoke_test.py
 src/shopee_rodizio/  __init__.py, __main__.py, boost.py, ciclo.py, cliente_shopee.py, config.py, estado.py, logging_config.py, selecao.py
 tests/  test_boost.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_logging_config.py, test_scaffold.py, test_selecao.py
 ```
 
 ## Símbolos públicos por arquivo
 
+### `scripts/smoke_test.py` — Smoke-test manual contra a API real da Shopee.
+- `_analisar_args(argv: list[str])`
+- `_cliente_de(config: Config)`
+- `main(argv: list[str] | None = None)`
+
 ### `src/shopee_rodizio/__init__.py`
 - `main()`
 
 ### `src/shopee_rodizio/__main__.py` — Entrypoint do serviço: carrega a config, configura o log e entra no loop de rodízio.
+- `_caminho_token(config: Config)`
+- `_carregar_token(caminho: Path)`
+- `_persistir_token(caminho: Path, token: Token)`
 - `_analisar_args(argv: list[str])`
-- `_cliente_de(config: Config)`
+- `_cliente_de(config: Config, token: Token | None = None)`
 - `executar_loop(caminho_config: str, *, max_iteracoes: int | None = None)`
 - `main(argv: list[str] | None = None)`
 
@@ -91,6 +100,13 @@ tests/  test_boost.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, te
 - `_config_arquivo(tmp_path)`
 - `test_loop_principal_roda_numero_limitado_de_iteracoes_sem_quebrar(tmp_path, _config_arquivo)`
 - `test_loop_principal_continua_apos_ciclo_lancar_excecao_inesperada(tmp_path, _config_arquivo)`
+- `_ClienteFake` *(classe)* — --- Persistência do token renovado (RF-02) ---------------------------------------------
+- `test_persistir_e_carregar_token_faz_roundtrip(tmp_path)`
+- `test_carregar_token_inexistente_devolve_none(tmp_path)`
+- `test_cliente_de_usa_token_persistido_em_vez_do_config_apos_restart()`
+- `test_cliente_de_sem_token_persistido_usa_config()`
+- `test_loop_persiste_token_renovado_apos_ciclo(tmp_path, _config_arquivo)`
+- `test_loop_nao_grava_token_quando_nao_ha_renovacao(tmp_path, _config_arquivo)`
 
 ### `tests/test_cliente_shopee.py`
 - `_cliente(**overrides)`

@@ -2,11 +2,11 @@
 id: T-010
 titulo: Script de smoke-test contra a API real da Shopee
 projeto: shopee-rodizio
-status: pronta
+status: em-execucao
 prioridade: media
 dependencias: [T-004, T-005]
 areas: [scripts/smoke_test.py, README.md]
-tentativas: 0
+tentativas: 1
 agente: integracao-shopee
 criada: 2026-08-24
 atualizada: 2026-08-25
@@ -48,6 +48,39 @@ para validar isso agora.
 
 ## Notas de execução
 
+Criado `scripts/smoke_test.py`: importa `carregar_config`/`ConfigError` de `config.py`,
+`ClienteShopee` de `cliente_shopee.py` e `impulsionar` de `boost.py` — a chamada real de
+impulsionamento é feita via `boost.impulsionar(cliente, config, item_id)`, o mesmo caminho
+usado em produção por `ciclo.py`; nenhuma lógica de assinatura HMAC é reimplementada (o
+cliente já cuida disso via `ClienteShopee.chamar`). Faz UMA única chamada por execução
+(item consome o limite real da conta), imprime endpoint/shop_id/item_id antes de chamar e,
+depois, sucesso ou a mensagem de erro completa devolvida pela API (via
+`ResultadoBoost.mensagem`, que já concatena `error: message` do corpo de erro da Shopee) —
+inclui aviso se o `access_token` foi renovado durante a chamada. Erro ao carregar o
+`config.toml` (arquivo ausente ou inválido) é capturado e vira mensagem amigável em vez de
+traceback. `--item-id` (opcional) sobrepõe o primeiro item de `[[itens]]`.
+
+Testado manualmente: `--help` mostra uso e sai com código 0; caminho de config inexistente
+mostra erro amigável (código 1, sem traceback); rodando com `config.example.toml` (valores
+de exemplo, não credenciais reais) a chamada de rede realmente sai e a Shopee responde com
+erro de validação (`partner_id inválido`), confirmando que o fluxo de assinatura + POST
+funciona ponta a ponta e que o script imprime o corpo de erro completo.
+
+README.md ganhou a seção "Confirmar o endpoint antes do primeiro deploy": por que o passo
+existe (incerteza do endpoint, ver DECISOES.md), o comando de execução e o que fazer se a
+resposta indicar path/parâmetro errado.
+
+Não há `tests/` para este script (a tarefa dispensa, propositalmente: ele faz uma chamada
+de rede real e não deve rodar em CI).
+
+**Reproduzir:**
+`.venv/Scripts/python.exe scripts/smoke_test.py --help && .venv/Scripts/python.exe -m ruff check scripts/smoke_test.py`
+(`uv` não está no PATH deste ambiente — os critérios usam `uv run`, mas o efeito é o
+mesmo via o Python do `.venv` do projeto.)
+
+Nota: havia mudanças pré-existentes e não commitadas em `src/shopee_rodizio/__main__.py`,
+`tests/test_ciclo.py` e `_gestao/tarefas/T-008-ciclo.md` (de T-008) antes desta execução —
+não fazem parte de T-010 e não foram tocadas nem commitadas por mim.
 
 ## Verificação
 
