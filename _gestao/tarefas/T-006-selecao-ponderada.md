@@ -2,7 +2,7 @@
 id: T-006
 titulo: Sorteio ponderado de itens sem reposição por ciclo
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: alta
 dependencias: [T-002, T-003]
 areas: [src/shopee_rodizio/selecao.py, tests/test_selecao.py]
@@ -71,6 +71,8 @@ algoritmo cabe abaixo do limiar de 50 linhas (ficou com 23).
 **Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_selecao.py -q`
 (nota: `uv` não está no PATH deste ambiente; usei o interpretador do venv diretamente —
 mesmo comportamento do critério `uv run pytest ...`)
+
+**Commit:** `736f2f2`
 
 ## Verificação
 
