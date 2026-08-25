@@ -85,7 +85,7 @@ grep -c "Restart=on-failure" systemd/shopee-rodizio.service
 .venv\Scripts\python.exe -m ruff check .
 ```
 
-**Commit:** `PENDENTE`
+**Commit:** `9eae83f`
 
 ## Verificação
 
