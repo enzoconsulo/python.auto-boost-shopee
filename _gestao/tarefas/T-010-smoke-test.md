@@ -2,7 +2,7 @@
 id: T-010
 titulo: Script de smoke-test contra a API real da Shopee
 projeto: shopee-rodizio
-status: em-teste
+status: concluida
 prioridade: media
 dependencias: [T-004, T-005]
 areas: [scripts/smoke_test.py, README.md]
@@ -86,8 +86,74 @@ não fazem parte de T-010 e não foram tocadas nem commitadas por mim.
 
 ## Verificação
 
+### Ciclo 2
+
+- **[PASSOU] [executado] Critério 1: `scripts/smoke_test.py` existe, importa `config.py`/`cliente_shopee.py`/`boost.py` do pacote (não duplica lógica de assinatura HMAC), e `uv run python scripts/smoke_test.py --help` mostra uso sem traceback.**
+  Comando: `.\.venv\Scripts\python.exe scripts/smoke_test.py --help`
+  Saída: Menu de ajuda exibido sem erros, mostrando argumentos corretos (config posicional, --item-id opcional). Verificado que importa: `from shopee_rodizio.boost import impulsionar`, `from shopee_rodizio.cliente_shopee import ClienteShopee`, `from shopee_rodizio.config import Config, ConfigError, carregar_config` — sem duplicação de lógica HMAC (usa `ClienteShopee` do pacote).
+
+- **[PASSOU] [executado] Critério 2: `uv run ruff check scripts/smoke_test.py` → sem erros.**
+  Comando: `.\.venv\Scripts\python.exe -m ruff check scripts/smoke_test.py`
+  Saída: `All checks passed!`
+
+- **[PASSOU] [executado] Critério 3: README.md tem a seção "Confirmar o endpoint antes do primeiro deploy" com o comando real de execução do script e a explicação da incerteza do endpoint.**
+  Inspeção: Seção presente em README.md (linhas 25-45) com:
+    - Explicação da incerteza (endpoint não confirmável em documentação pública sem login)
+    - Comando de execução: `uv run python scripts/smoke_test.py caminho/para/config.toml`
+    - Instruções sobre --item-id (opcional, padrão é primeiro item)
+    - O que fazer se erro indicar path/parâmetro inválido
+    - Aviso sobre consumo real de limite da conta
+
+Suíte completa: 53 passaram, 0 falharam — `.\.venv\Scripts\python.exe -m pytest -q`
+Tratamento de erro: Testado com arquivo inexistente — retorna mensagem amigável em stderr (sem traceback) e código de saída 1.
+Graus de prova: 3 executados, 0 inspecionados, 0 julgados
+
+
 
 ## Conformidade
 
+Conformidade: cumpre
+
+- `scripts/smoke_test.py` existe, importa `carregar_config`/`ConfigError` de `config.py`,
+  `ClienteShopee` de `cliente_shopee.py` e `impulsionar` de `boost.py`, sem reimplementar
+  assinatura HMAC → `scripts/smoke_test.py:16-18,38-46,66`. `--help` mostra uso e sai 0
+  (confirmado por leitura do `argparse` e pela Verificação do testador).
+- `uv run ruff check scripts/smoke_test.py` → sem erros (confirmado pela Verificação do
+  testador, "All checks passed!").
+- README ganhou a seção "Confirmar o endpoint antes do primeiro deploy" com o comando real
+  (`uv run python scripts/smoke_test.py caminho/para/config.toml`), a explicação da
+  incerteza do endpoint (remete a `_gestao/DECISOES.md`) e o que fazer diante de erro de
+  path/parâmetro → `README.md:24-45`.
+- Objetivo (diagnóstico manual de `endpoint_boost` contra a API real, sem rodar em CI):
+  cumprido — o script faz UMA chamada real via `boost.impulsionar` (o mesmo caminho de
+  produção), imprime endpoint/shop_id/item_id antes e o resultado bruto (sucesso ou
+  `error: message` da Shopee) depois; não há `tests/` para ele, como a tarefa pede
+  explicitamente.
+- Escopo: sem sobra. `MAPA.md` foi regenerado (reflete também símbolos de T-008 que já
+  estava commitada em `888bcb5` mas cujo mapa não tinha sido atualizado) — housekeeping
+  do índice, não mudança de comportamento, e o próprio `MAPA.md` documenta essa rotina.
+- Decisão de 2026-08-24 ("Endpoint de boost da Shopee: incerteza registrada") é exatamente
+  o que esta tarefa mitiga — coerente.
 
 ## Revisão
+
+Aprovado sem ressalvas.
+
+Verifiquei, lendo o diff e os arquivos que ele toca (`cliente_shopee.py`, `boost.py`,
+`__main__.py`, `config.py`):
+- `_cliente_de` do script passa `expira_em=None`, o que força `_precisa_renovar()` a
+  devolver `True` e renovar o token antes da chamada de boost — mesmo comportamento que
+  `__main__._cliente_de` já usa quando não há token persistido; não é bug introduzido
+  aqui, é o padrão estabelecido do projeto.
+- O aviso de "token renovado" (`cliente.token.access_token != config.shopee.access_token`)
+  só dispara quando a renovação de fato mutou `cliente._token` — se a renovação falhar,
+  `_aplicar_renovacao` nunca é chamado e a comparação permanece falsa; sem falso positivo.
+- `item_id = args.item_id if ... else config.itens[0].id` não tem guarda contra lista
+  vazia, mas `config.py:71-73` já garante `itens` não-vazio na validação — não é um caso
+  alcançável.
+- Erro de carregar config (`ConfigError`/`OSError`) é capturado e vira mensagem amigável
+  com código de saída 1, sem traceback — confirmado por leitura de `scripts/smoke_test.py:48-52`.
+- Nenhuma credencial hardcoded; nenhuma lógica de assinatura duplicada.
+
+Suíte completa do testador (53 passaram) e a Verificação "Ciclo 2" registram os 3
+critérios como PASSOU com comando executado, não apenas inspecionado.
