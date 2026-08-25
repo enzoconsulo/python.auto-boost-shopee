@@ -2,7 +2,7 @@
 id: T-010
 titulo: Script de smoke-test contra a API real da Shopee
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: media
 dependencias: [T-004, T-005]
 areas: [scripts/smoke_test.py, README.md]
@@ -81,6 +81,8 @@ mesmo via o Python do `.venv` do projeto.)
 Nota: havia mudanças pré-existentes e não commitadas em `src/shopee_rodizio/__main__.py`,
 `tests/test_ciclo.py` e `_gestao/tarefas/T-008-ciclo.md` (de T-008) antes desta execução —
 não fazem parte de T-010 e não foram tocadas nem commitadas por mim.
+
+**Commit:** `ab1bb6a`
 
 ## Verificação
 
