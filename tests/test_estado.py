@@ -1,5 +1,3 @@
-from pathlib import Path
-
 from shopee_rodizio.estado import carregar_estado, historico_recente, registrar_boost
 
 

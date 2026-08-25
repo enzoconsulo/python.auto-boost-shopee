@@ -2,14 +2,14 @@
 id: T-011
 titulo: Corrigir import não utilizado que quebra o lint do projeto inteiro
 projeto: shopee-rodizio
-status: pronta
+status: em-teste
 prioridade: alta
 dependencias: [T-003]
 areas: [tests/test_estado.py]
-tentativas: 0
+tentativas: 1
 agente: config-estado
 criada: 2026-08-24
-atualizada: 2026-08-24
+atualizada: 2026-08-25
 ---
 
 ## Objetivo
@@ -32,9 +32,22 @@ Correção é de uma linha: remover o import não utilizado. Rode
 que nada mais no arquivo dependia dele.
 
 ## Critérios de aceite
-- [ ] `uv run ruff check .` roda sem erro no projeto inteiro (exit 0).
+- [x] `uv run ruff check .` roda sem erro no projeto inteiro (exit 0).
       `verificar: uv run ruff check .`
-- [ ] `uv run pytest -q` continua com toda a suíte passando (sem regressão).
+- [x] `uv run pytest -q` continua com toda a suíte passando (sem regressão).
       `verificar: uv run pytest -q`
 
 ## Notas de execução
+
+Removida a linha `from pathlib import Path` (não usada) de
+`tests/test_estado.py:1` — nada mais no arquivo dependia dela.
+
+`uv` não está no PATH deste ambiente; usei `.venv\Scripts\python.exe -m ruff` e
+`.venv\Scripts\python.exe -m pytest` (equivalente ao `uv run`).
+
+- `ruff check .` → `All checks passed!` (exit 0)
+- `pytest -q` → `35 passed in 0.60s`
+
+**Reproduzir:** `.venv\Scripts\python.exe -m ruff check . && .venv\Scripts\python.exe -m pytest -q`
+
+**Commit:**
