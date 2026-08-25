@@ -22,6 +22,61 @@ Lint (`ruff`):
 uv run ruff check .
 ```
 
+## Deploy no BTT Pi (systemd)
+
+Passo a passo para instalar e deixar o serviço rodando 24/7 no BigTreeTech Pi 1.2.1 (mesmo
+SBC que já roda o Klipper). Os comandos assumem o usuário `pi`; troque por outro usuário
+sem privilégio de root se o seu SBC usa um diferente — o mesmo usuário que já roda o
+Klipper costuma servir, por já ter acesso de escrita ao diretório do projeto, mas não é
+obrigatório.
+
+1. **Copiar/clonar o projeto para o BTT Pi:**
+
+   ```
+   git clone <url-do-repositorio> /home/pi/shopee-rodizio
+   ```
+
+   (ou `scp -r shopee-rodizio pi@<ip-do-pi>:/home/pi/` a partir da sua máquina, se o
+   repositório não estiver acessível por `git` a partir do SBC).
+
+2. **Instalar `uv` no SBC** (confirme antes se já não está disponível: `uv --version`):
+
+   ```
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
+
+   Isso instala o binário em `~/.local/bin/uv` — o caminho que `systemd/shopee-rodizio.service`
+   usa no `ExecStart` (unidades systemd não carregam o `PATH` do shell interativo).
+
+3. **Criar o `config.toml` real** a partir do exemplo, com as credenciais Shopee do usuário:
+
+   ```
+   cd /home/pi/shopee-rodizio
+   cp config.example.toml config.toml
+   nano config.toml   # preencha [shopee] (partner_id, partner_key, shop_id, tokens) e [[itens]]
+   ```
+
+4. **Instalar e ativar a unidade systemd:**
+
+   ```
+   sudo cp systemd/shopee-rodizio.service /etc/systemd/system/
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now shopee-rodizio
+   ```
+
+5. **Acompanhar o log:**
+
+   ```
+   journalctl -u shopee-rodizio -f
+   ```
+
+   ou, direto no arquivo configurado em `[caminhos].log` do `config.toml` (por padrão
+   `shopee-rodizio.log`, relativo ao `WorkingDirectory` do serviço):
+
+   ```
+   tail -f /home/pi/shopee-rodizio/shopee-rodizio.log
+   ```
+
 ## Confirmar o endpoint antes do primeiro deploy
 
 O caminho exato do endpoint de impulsionamento (`ciclo.endpoint_boost`) e os nomes de

@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 888bcb5 · 2026-08-25 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: f13301b · 2026-08-25 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -12,11 +12,12 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 ## Árvore
 
 ```
-(raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
+(raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, test-fase2.log, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
 scripts/  smoke_test.py
 src/shopee_rodizio/  __init__.py, __main__.py, boost.py, ciclo.py, cliente_shopee.py, config.py, estado.py, logging_config.py, selecao.py
+systemd/  shopee-rodizio.service
 tests/  test_boost.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_logging_config.py, test_scaffold.py, test_selecao.py
 ```
 
@@ -95,6 +96,7 @@ tests/  test_boost.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, te
 - `test_ciclo_com_todos_os_boosts_com_sucesso_grava_historico(tmp_path)`
 - `test_ciclo_com_boost_falhando_por_erro_de_api_nao_lanca_e_grava_falha(tmp_path)`
 - `test_ciclo_com_excecao_inesperada_de_rede_nao_escapa_e_grava_falha(tmp_path)`
+- `test_ciclo_com_falha_ao_gravar_historico_nao_escapa(tmp_path)`
 - `test_ciclo_respeita_limite_de_slots_e_seleciona_via_selecao(tmp_path)`
 - `test_ciclo_sem_itens_selecionados_nao_grava_nada(tmp_path)`
 - `_config_arquivo(tmp_path)`
@@ -107,6 +109,7 @@ tests/  test_boost.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, te
 - `test_cliente_de_sem_token_persistido_usa_config()`
 - `test_loop_persiste_token_renovado_apos_ciclo(tmp_path, _config_arquivo)`
 - `test_loop_nao_grava_token_quando_nao_ha_renovacao(tmp_path, _config_arquivo)`
+- `test_loop_primeira_subida_sem_renovacao_nao_grava_token_com_cliente_real(tmp_path, _config_arquivo)`
 
 ### `tests/test_cliente_shopee.py`
 - `_cliente(**overrides)`
