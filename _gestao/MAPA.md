@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: b5df182 · 2026-08-25 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 20ced72 · 2026-08-25 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -15,14 +15,18 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
-src/shopee_rodizio/  __init__.py, cliente_shopee.py, config.py, estado.py
-tests/  test_cliente_shopee.py, test_config.py, test_estado.py, test_scaffold.py
+src/shopee_rodizio/  __init__.py, boost.py, cliente_shopee.py, config.py, estado.py
+tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_scaffold.py
 ```
 
 ## Símbolos públicos por arquivo
 
 ### `src/shopee_rodizio/__init__.py`
 - `main()`
+
+### `src/shopee_rodizio/boost.py` — Chamada do endpoint de impulsionamento de UM item, via `cliente_shopee.py`.
+- `ResultadoBoost` *(classe)*
+- `impulsionar(cliente: ClienteShopee, config: Config, item_id: int)`
 
 ### `src/shopee_rodizio/cliente_shopee.py` — Cliente HTTP da Shopee Open Platform API v2: assinatura HMAC-SHA256, chamada
 - `Token` *(classe)*
@@ -52,6 +56,13 @@ tests/  test_cliente_shopee.py, test_config.py, test_estado.py, test_scaffold.py
 - `registrar_boost(estado: Estado, item_id: int, sucesso: bool, mensagem: str)`
 - `historico_recente(estado: Estado, item_id: int)`
 - `_gravar(estado: Estado)`
+
+### `tests/test_boost.py`
+- `_config(**overrides_ciclo)`
+- `test_impulsionar_com_sucesso_devolve_resultado_positivo()`
+- `test_impulsionar_usa_endpoint_e_shop_id_da_config()`
+- `test_impulsionar_erro_da_api_devolve_resultado_negativo_sem_lancar()`
+- `test_impulsionar_erro_sem_mensagem_devolve_mensagem_generica()`
 
 ### `tests/test_cliente_shopee.py`
 - `_cliente(**overrides)`

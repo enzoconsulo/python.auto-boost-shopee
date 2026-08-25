@@ -2,7 +2,7 @@
 id: T-004
 titulo: Cliente HTTP Shopee com assinatura HMAC e renovação de token
 projeto: shopee-rodizio
-status: em-teste
+status: concluida
 prioridade: alta
 dependencias: [T-001, T-002]
 areas: [src/shopee_rodizio/cliente_shopee.py, tests/test_cliente_shopee.py]
@@ -10,7 +10,6 @@ tentativas: 2
 agente: integracao-shopee
 criada: 2026-08-24
 atualizada: 2026-08-24
-ultima-reprovacao: mecanica
 ---
 
 ## Objetivo
@@ -166,8 +165,19 @@ ImportError while importing test module 'C:\Users\enzoc\OneDrive\Documentos\Gera
 
 Graus de prova: 1 executado(s), 2 para julgamento (de 3).
 
+### Passada mecânica (sem modelo)
+
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
+- [julgado] `uv run pytest tests/test_cliente_shopee.py -q` → todos os testes passam, incluindo um teste que verifica a assinatura HMAC-SHA256 contra um vetor de entrada fixo (partner_id, path, timestamp, partner_key conhecidos → hash esperado calculado à parte no teste) e um teste que simula timeout/erro de conexão e confirma que a função retorna um resultado de erro em vez de lançar exceção. — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `uv run ruff check src/shopee_rodizio/cliente_shopee.py` → sem erros. — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 1 executado(s), 2 para julgamento (de 3).
+
+
 
 ## Conformidade
+Conformidade: cumpre
+
 Objetivo atendido: assinatura HMAC-SHA256 (`partner_id+path+timestamp` [+access_token+shop_id
 na loja]), chamada HTTP via `requests`, renovação proativa via `/api/v2/auth/access_token/get`
 com margem antes de expirar, e nenhuma exceção de rede/API escapando (tudo vira `Resultado`).
@@ -175,4 +185,82 @@ Endpoint de boost NÃO hardcoded: `chamar(path, params)` recebe o caminho da con
 conforme DECISOES 2026-08-24. Invariante de persistência do token corrigida (token renovado
 volta ao chamador mesmo em erro do alvo). Ambos os critérios de aceite executados e passando.
 
+- Critério 1 (testes passam, incluindo vetor HMAC fixo e timeout/erro de conexão sem
+  lançar) → `tests/test_cliente_shopee.py` (12 testes; `test_assinatura_publica_bate_com_
+  vetor_conhecido` e `test_assinatura_loja_bate_com_vetor_conhecido_e_inclui_token_e_shop`
+  cobrem o vetor HMAC, `test_chamar_timeout_devolve_resultado_de_erro_sem_lancar` e
+  `test_chamar_erro_conexao_devolve_resultado_de_erro_sem_lancar` cobrem falha de rede).
+  Confirmado nesta revisão: `.venv\Scripts\python.exe -m pytest tests/test_cliente_shopee.py -q` → 12 passed.
+- Critério 2 (`ruff check` limpo em `cliente_shopee.py`) → confirmado nesta revisão:
+  `.venv\Scripts\python.exe -m ruff check src/shopee_rodizio/cliente_shopee.py` → All checks passed!
+- Escopo: `chamar(path, params)` genérico, sem endpoint de boost hardcoded, conforme
+  DECISOES 2026-08-24 ("Endpoint de boost: incerteza registrada"). Nenhuma sobra fora de
+  escopo — `pyproject.toml` (`[tool.pytest.ini_options] pythonpath`) e `_gestao/MAPA.md`
+  também tocados no ciclo anterior, mas é infraestrutura mínima e justificada (corrige a
+  passada mecânica sem `.venv`/`uv`), não funcionalidade extra.
+
+### Ciclo 3 (verificação — retrabalho)
+
+- **[PASSOU] [executado] Critério 1: todos os testes passam, incluindo HMAC-SHA256 contra vetor fixo e timeout/erro de conexão retornando Resultado**
+  Comando: `.venv\Scripts\python.exe -m pytest tests/test_cliente_shopee.py -v`
+  Saída: 12 passed (100% passa)
+  Cobertura:
+    - `test_assinatura_publica_bate_com_vetor_conhecido` — HMAC-SHA256 com vetor fixo ✓
+    - `test_assinatura_loja_bate_com_vetor_conhecido_e_inclui_token_e_shop` — HMAC-SHA256 nível loja ✓
+    - `test_chamar_timeout_devolve_resultado_de_erro_sem_lancar` — timeout sem exceção ✓
+    - `test_chamar_erro_conexao_devolve_resultado_de_erro_sem_lancar` — erro de conexão sem exceção ✓
+    - `test_chamar_renova_mas_alvo_falha_ainda_devolve_token_renovado_para_persistir` — token renovado em erro de API ✓
+    - `test_chamar_renova_mas_timeout_no_alvo_ainda_devolve_token_renovado` — token renovado em timeout ✓
+
+- **[PASSOU] [executado] Critério 2: ruff check sem erros em cliente_shopee.py**
+  Comando: `.venv\Scripts\python.exe -m ruff check src/shopee_rodizio/cliente_shopee.py`
+  Saída: All checks passed!
+
+Suíte completa: `.venv\Scripts\python.exe -m pytest -q` → **27 passed** (nenhuma regressão)
+
+Graus de prova: 2 executados (ambos os critérios rodei via Python), 0 julgados
+
 ## Revisão
+
+### Ciclo 4 (revisão)
+
+Diff revisado: `b5df182` (código — `cliente_shopee.py` novo + `test_cliente_shopee.py`
+novo) e `2ca723c` (`pyproject.toml` — `pythonpath = ["src"]`, e `_gestao/MAPA.md`). O campo
+`Commit:` só registrava `2ca723c`; `b5df182`, que traz o código de fato, não tinha hash
+próprio anotado — localizado via `git log --oneline` (`git show --stat b5df182` mostra
+`cliente_shopee.py` e `test_cliente_shopee.py` como arquivos novos).
+
+Revisão de código (`chamar()` em `cliente_shopee.py:83-104`):
+- Renovação proativa (`_precisa_renovar`, margem de 10 min ou `expira_em is None`) correta.
+- Bug do ciclo anterior (token renovado descartado quando a chamada-alvo falha) está
+  corrigido: os dois pontos de retorno de erro pós-renovação (erro de API em
+  `cliente_shopee.py:97` e o `except RequestException` em `cliente_shopee.py:101-104`)
+  carregam `token_renovado=token_renovado`. Confirmei manualmente o caminho: se a exceção
+  ocorre DURANTE a própria renovação (antes de `_aplicar_renovacao`), `token_renovado`
+  permanece `None` corretamente (nada novo para persistir); se ocorre na chamada-alvo
+  após renovação bem-sucedida, o token novo é propagado — é exatamente a invariante que a
+  tarefa pede. Coberto por `test_chamar_renova_mas_alvo_falha_ainda_devolve_token_renovado_
+  para_persistir` e `test_chamar_renova_mas_timeout_no_alvo_ainda_devolve_token_renovado`.
+- `assinatura()`/`base_publica()`/`base_loja()` conferem com o vetor calculado
+  independentemente nos testes (HMAC-SHA256, chave e mensagem na ordem certa).
+- Nenhuma exceção de rede/API escapa de `chamar()`: `RequestException` (inclui `Timeout`,
+  `ConnectionError` e `HTTPError` de `raise_for_status()`) é capturado; erro de corpo da
+  API (`_erro_api`) tratado antes de tentar acessar campos que não existiriam em erro.
+- Reexecutei os dois critérios e a suíte completa nesta revisão (ver acima): 12 passed em
+  `test_cliente_shopee.py`, `ruff check` limpo, 27 passed na suíte inteira — sem regressão.
+
+Achados (nenhum crítico/importante):
+- [menor] `_gestao/tarefas/T-004-cliente-shopee.md` — o hash do commit de código
+  (`b5df182`) nunca foi anotado num campo `**Commit:**` próprio; só o hash do commit
+  seguinte (`2ca723c`, que traz apenas o fix de `pyproject.toml` e o `MAPA.md`) está
+  registrado. Não bloqueou esta revisão porque `git log` localizou o commit sem custo
+  extra, mas é o mesmo defeito de processo que o protocolo pede para sinalizar quando o
+  campo está ausente.
+- [menor] O commit `b5df182` (do "executor reforçado") preencheu sozinho as seções
+  `## Verificação` e `## Conformidade` da tarefa — seções que, pelo protocolo, são do
+  testador e do revisor, respectivamente. O conteúdo em si está correto (confirmado
+  nesta revisão), mas o processo de quem escreve em qual seção não foi respeitado nesse
+  ciclo específico de recuperação.
+
+Aprovado sem ressalvas quanto a correção e conformidade — os dois achados acima são de
+processo/rastreabilidade, não de código.

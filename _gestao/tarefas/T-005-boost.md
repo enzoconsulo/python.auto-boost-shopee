@@ -2,11 +2,11 @@
 id: T-005
 titulo: Chamada do endpoint de impulsionamento por item
 projeto: shopee-rodizio
-status: backlog
+status: em-teste
 prioridade: alta
 dependencias: [T-004]
 areas: [src/shopee_rodizio/boost.py, tests/test_boost.py]
-tentativas: 0
+tentativas: 1
 agente: integracao-shopee
 criada: 2026-08-24
 atualizada: 2026-08-24
@@ -39,6 +39,28 @@ cliente (T-004) vira `ResultadoBoost(sucesso=False, mensagem=...)`, nunca exceç
 
 ## Notas de execução
 
+Criado `src/shopee_rodizio/boost.py`: `impulsionar(cliente, config, item_id) -> ResultadoBoost`
+chama `cliente.chamar(config.ciclo.endpoint_boost, {"item_id": ..., "shop_id": config.shopee.shop_id})`
+e traduz o `Resultado` do cliente (T-004) em `ResultadoBoost(sucesso, mensagem)`, sem exceção.
+Payload (`item_id` + `shop_id`) é o palpite plausível descrito no Contexto da tarefa — comentário
+no topo do módulo deixa isso explícito para a T-010 (smoke-test) confirmar contra a conta real.
+
+Teste escrito antes da implementação (`tests/test_boost.py`), mockando `ClienteShopee.chamar`
+diretamente (não o HTTP — a assinatura/renovação já é responsabilidade testada em T-004):
+sucesso vira `ResultadoBoost(sucesso=True, ...)`, erro da API vira `ResultadoBoost(sucesso=False,
+mensagem=...)` sem lançar, e um caso cobre erro sem mensagem (`erro=None`) para a mensagem
+genérica. Também confere que `endpoint_boost` e `shop_id` vêm da config, não hardcoded.
+
+Rodei manualmente (via `.venv\Scripts\python.exe -m pytest`, porque `uv` não está no PATH
+deste ambiente — ver `_gestao/GUIA.md`/memória do agente):
+- `pytest tests/test_boost.py -q` → 4 passed.
+- `ruff check src/shopee_rodizio/boost.py tests/test_boost.py` → All checks passed!
+
+Nenhuma dependência nova.
+
+**Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_boost.py -q`
+
+**Commit:** `PENDENTE`
 
 ## Verificação
 
