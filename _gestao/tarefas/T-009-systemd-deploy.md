@@ -227,7 +227,7 @@ cmd /c find /C "Restart=on-failure" systemd\shopee-rodizio.service
 .venv\Scripts\python.exe -m ruff check .
 ```
 
-**Commit:** `<preencher após o commit>`
+**Commit:** `9f6391a`
 
 ## Verificação
 
