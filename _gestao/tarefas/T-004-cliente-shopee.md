@@ -53,11 +53,51 @@ partir do teste automatizado.
 
 ## Notas de execução
 
+**Retrabalho (executor reforçado, 2026-08-24).** As seções Verificação/Conformidade/Revisão
+chegaram vazias e nada de T-004 estava commitado (ambos os arquivos `??` no git) — o ciclo
+anterior produziu o código mas não fechou o contrato de estado. Diagnóstico de abertura:
+
+- **Causa raiz:** o `chamar()` descartava o `token_renovado` sempre que a renovação dava
+  certo mas a chamada-alvo seguinte falhava (erro de API ou exceção de rede). Como a
+  renovação bem-sucedida já invalida o `refresh_token` antigo, o retorno de erro com
+  `token_renovado=None` fazia o chamador perder o token novo — violando a invariante "token
+  renovado é persistido (nunca só em memória)". Caminho não coberto por teste.
+- **Correção (mínima):** os dois retornos de erro pós-renovação (`erro` de API e o `except`
+  de `RequestException`) agora carregam `token_renovado=token_renovado`. Só retornos foram
+  tocados; assinatura/fluxo intactos. +1 teste cobrindo renovação-ok + alvo-com-erro.
+- **Aproveitamento:** ~95% do código anterior mantido (assinatura HMAC, renovação proativa,
+  tratamento de erro já corretos e passando). Refiz apenas o repasse do token nos retornos
+  de erro.
+
+**Persistência do token renovado — caminho escolhido:** retorno estruturado. O cliente NÃO
+grava estado; devolve `Resultado.token_renovado` (um `Token` imutável) para o chamador
+(T-008 `ciclo.py`) persistir via T-003 `estado.py`. Escolhido em vez de acoplar o cliente ao
+`estado.py` para manter o cliente sem I/O de disco (testável só com `requests` mockado) e a
+persistência num único lugar. Fora do escopo de T-004: o `tests/test_estado.py:1` F401 que
+faz `ruff check .` (projeto inteiro) falhar é regressão de T-003, já endereçada por T-011 —
+o critério de lint desta tarefa é escopado a `cliente_shopee.py`, que passa limpo.
 
 ## Verificação
+Rodado com o Python do `.venv` do projeto (o wrapper `uv` não está no PATH desta máquina;
+`.venv\Scripts\python.exe -m pytest/ruff` é equivalente — mesma suíte, mesmas versões).
 
+- `python -m pytest tests/test_cliente_shopee.py -q` → **12 passed** (10 anteriores + 2
+  novos cobrindo renovação-ok seguida de erro de API e de timeout no alvo). Inclui o teste
+  de vetor HMAC fixo (`test_assinatura_publica_bate_com_vetor_conhecido`) e os de
+  timeout/erro-de-conexão retornando `Resultado` sem lançar.
+- `python -m ruff check src/shopee_rodizio/cliente_shopee.py` → **All checks passed!**
+- Suíte completa: `python -m pytest -q` → **27 passed** (25 anteriores + 2).
+
+Nota fora de escopo: `ruff check .` (projeto inteiro) ainda acusa 1 F401 em
+`tests/test_estado.py:1` — regressão de T-003 endereçada por T-011, não por esta tarefa
+(critério de lint de T-004 é escopado a `cliente_shopee.py`).
 
 ## Conformidade
-
+Objetivo atendido: assinatura HMAC-SHA256 (`partner_id+path+timestamp` [+access_token+shop_id
+na loja]), chamada HTTP via `requests`, renovação proativa via `/api/v2/auth/access_token/get`
+com margem antes de expirar, e nenhuma exceção de rede/API escapando (tudo vira `Resultado`).
+Endpoint de boost NÃO hardcoded: `chamar(path, params)` recebe o caminho da config (T-002),
+conforme DECISOES 2026-08-24. Invariante de persistência do token corrigida (token renovado
+volta ao chamador mesmo em erro do alvo). Ambos os critérios de aceite executados e passando.
 
 ## Revisão
