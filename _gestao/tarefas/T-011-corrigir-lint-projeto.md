@@ -50,4 +50,4 @@ Removida a linha `from pathlib import Path` (não usada) de
 
 **Reproduzir:** `.venv\Scripts\python.exe -m ruff check . && .venv\Scripts\python.exe -m pytest -q`
 
-**Commit:**
+**Commit:** `cf2d31f`
