@@ -33,7 +33,16 @@ def executar_ciclo(cliente: ClienteShopee, config: Config, estado: Estado) -> Es
             sucesso, mensagem = False, f"erro inesperado: {exc}"
             _logger.exception("erro inesperado ao impulsionar item %s", item.id)
 
-        estado = registrar_boost(estado, item.id, sucesso, mensagem)
+        try:
+            estado = registrar_boost(estado, item.id, sucesso, mensagem)
+        except Exception:
+            # Falha de I/O ao gravar o histórico (SD card de SBC 24/7 é hardware
+            # plausivelmente instável) não pode escapar de `executar_ciclo`: se um item
+            # anterior renovou o `access_token` in-place, deixar a exceção subir faria o
+            # loop pular a persistência do token novo (RF-02) — o gap que o revisor apontou.
+            _logger.exception("falha ao gravar histórico do item %s", item.id)
+            continue
+
         nivel = logging.INFO if sucesso else logging.WARNING
         _logger.log(nivel, "item %s: %s", item.id, mensagem)
 
