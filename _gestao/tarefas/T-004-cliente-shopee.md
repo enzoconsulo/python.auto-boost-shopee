@@ -6,10 +6,11 @@ status: em-execucao
 prioridade: alta
 dependencias: [T-001, T-002]
 areas: [src/shopee_rodizio/cliente_shopee.py, tests/test_cliente_shopee.py]
-tentativas: 1
+tentativas: 2
 agente: integracao-shopee
 criada: 2026-08-24
 atualizada: 2026-08-24
+ultima-reprovacao: mecanica
 ---
 
 ## Objetivo
@@ -91,6 +92,78 @@ Rodado com o Python do `.venv` do projeto (o wrapper `uv` não está no PATH des
 Nota fora de escopo: `ruff check .` (projeto inteiro) ainda acusa 1 F401 em
 `tests/test_estado.py:1` — regressão de T-003 endereçada por T-011, não por esta tarefa
 (critério de lint de T-004 é escopado a `cliente_shopee.py`).
+
+### Ciclo 2 (retrabalho — reprovação mecânica)
+
+A passada mecânica rodou `pytest` puro (sem `.venv` nem `uv`) para checar "a suíte do
+projeto continua passando" e todos os módulos falharam na coleta com
+`ModuleNotFoundError: No module named 'shopee_rodizio'`. Diagnóstico: nesta máquina o
+`pytest` que resolve no PATH é o do Python global
+(`C:\Users\enzoc\AppData\Local\Programs\Python\Python312\Scripts\pytest.exe`), não o do
+`.venv` — e `shopee_rodizio` só está instalado (editável, via `.pth`) dentro do `.venv`.
+Não é regressão de código desta tarefa: o pacote nunca esteve instalável a partir do
+Python global, e nenhuma tarefa anterior tinha um passo mecânico que rodasse `pytest` puro
+sem apontar para o `.venv`.
+
+**Correção:** adicionado `[tool.pytest.ini_options]\npythonpath = ["src"]` em
+`pyproject.toml` — insere `src/` no `sys.path` do próprio `pytest` (opção suportada desde
+pytest 7, e a versão em uso é 9.1.1), então `import shopee_rodizio` resolve
+independentemente do interpretador ter o pacote instalado. `requests` já estava presente
+no Python global (2.34.2), então isso bastou. Confirmado com `pytest -q` (bare, Python
+global) → **27 passed**, igual ao resultado via `.venv`. Nenhum outro arquivo tocado;
+correção de configuração, não de lógica.
+
+**Reproduzir (bare, sem `.venv`/`uv`):** `pytest tests/test_cliente_shopee.py -q`
+**Reproduzir (suíte inteira, bare):** `pytest -q`
+**Reproduzir (via `.venv`, como antes):** `.venv\Scripts\python.exe -m pytest -q`
+
+`ruff`/`uv` continuam ausentes do PATH desta máquina (`where ruff` / `where uv` → não
+encontrado) — inalterado desde o ciclo anterior; os critérios de lint seguem para
+julgamento do verificador ou `.venv\Scripts\python.exe -m ruff check ...`.
+
+### Passada mecânica (sem modelo)
+
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **FALHOU**
+
+```
+============================= test session starts =============================
+platform win32 -- Python 3.12.5, pytest-9.1.1, pluggy-1.6.0
+rootdir: C:\Users\enzoc\OneDrive\Documentos\Gerador_de_projetos\projetos\shopee-rodizio
+configfile: pyproject.toml
+plugins: anyio-4.14.2
+collected 0 items / 4 errors
+
+=================================== ERRORS ====================================
+________________ ERROR collecting tests/test_cliente_shopee.py ________________
+ImportError while importing test module 'C:\Users\enzoc\OneDrive\Documentos\Gerador_de_projetos\projetos\shopee-rodizio\tests\test_cliente_shopee.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\enzoc\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_cliente_shopee.py:9: in <module>
+    from shopee_rodizio.cliente_shopee import (
+E   ModuleNotFoundError: No module named 'shopee_rodizio'
+____________________ ERROR collecting tests/test_config.py ____________________
+ImportError while importing test module 'C:\Users\enzoc\OneDrive\Documentos\Gerador_de_projetos\projetos\shopee-rodizio\tests\test_config.py'.
+Hint: make sure your test modules/packages have valid Python names.
+Traceback:
+C:\Users\enzoc\AppData\Local\Programs\Python\Python312\Lib\importlib\__init__.py:90: in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\test_config.py:5: in <module>
+    from shopee_rodizio.config import ConfigError, carregar_config
+E   ModuleNotFoundError: No module named 'shopee_rodizio'
+____________________ ERROR collecting tests/test_estado.py ____________________
+ImportError while importing test module 'C:\Users\enzoc\OneDrive\Documentos\Gerador_de_projetos\projetos\shopee-rodizio\t
+… (saída cortada)
+```
+
+- [julgado] `uv run pytest tests/test_cliente_shopee.py -q` → todos os testes passam, incluindo um teste que verifica a assinatura HMAC-SHA256 contra um vetor de entrada fixo (partner_id, path, timestamp, partner_key conhecidos → hash esperado calculado à parte no teste) e um teste que simula timeout/erro de conexão e confirma que a função retorna um resultado de erro em vez de lançar exceção. — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `uv run ruff check src/shopee_rodizio/cliente_shopee.py` → sem erros. — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 1 executado(s), 2 para julgamento (de 3).
+
 
 ## Conformidade
 Objetivo atendido: assinatura HMAC-SHA256 (`partner_id+path+timestamp` [+access_token+shop_id
