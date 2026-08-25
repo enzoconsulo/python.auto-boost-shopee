@@ -61,7 +61,7 @@ pedido pela tarefa).
 
 **Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_logging_config.py -q`
 
-**Commit:** `<preencher no passo seguinte>`
+**Commit:** `cbcf02d`
 
 ## Verificação
 
