@@ -108,7 +108,7 @@ tempdir), `boost.impulsionar` mockado e `time.sleep` mockado por 2 iterações �
 acima com `.venv\Scripts\python.exe -m ...` são equivalentes e foram os efetivamente
 executados (ver memória de projeto sobre isso, já registrada em ciclos anteriores).
 
-**Commit:** `PLACEHOLDER`
+**Commit:** `5197e89`
 
 ## Verificação
 
