@@ -2,7 +2,7 @@
 id: T-004
 titulo: Cliente HTTP Shopee com assinatura HMAC e renovação de token
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: alta
 dependencias: [T-001, T-002]
 areas: [src/shopee_rodizio/cliente_shopee.py, tests/test_cliente_shopee.py]
@@ -120,6 +120,8 @@ correção de configuração, não de lógica.
 `ruff`/`uv` continuam ausentes do PATH desta máquina (`where ruff` / `where uv` → não
 encontrado) — inalterado desde o ciclo anterior; os critérios de lint seguem para
 julgamento do verificador ou `.venv\Scripts\python.exe -m ruff check ...`.
+
+**Commit:** `2ca723c`
 
 ### Passada mecânica (sem modelo)
 
