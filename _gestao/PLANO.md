@@ -23,5 +23,5 @@ Tarefas: T-004, T-005, T-006, T-007, T-008
 ## Fase 3 — Refinamento
 Meta: serviço instalável como unidade systemd no BTT Pi (sobe no boot, reinicia sozinho) e
 confirmado/ajustado contra a conta Shopee real do usuário via smoke-test documentado.
-Marco: pendente
+Marco: aprovado 2026-08-25
 Tarefas: T-009, T-010

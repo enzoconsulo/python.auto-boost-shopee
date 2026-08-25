@@ -2,7 +2,7 @@
 id: T-009
 titulo: Unidade systemd e documentação de deploy no BTT Pi
 projeto: shopee-rodizio
-status: em-teste
+status: concluida
 prioridade: media
 dependencias: [T-008]
 areas: [systemd/shopee-rodizio.service, README.md]
@@ -229,6 +229,14 @@ cmd /c find /C "Restart=on-failure" systemd\shopee-rodizio.service
 
 **Commit:** `9f6391a`
 
+**Fora das `areas` (detectado pelo motor):** test-fase2.log
+
+Estes arquivos foram alterados por esta etapa e estão FORA das `areas` que a
+tarefa declarou. Não entram no commit da tarefa, então não aparecem no diff que
+o revisor julga — confira se a alteração era legítima (e a `area` é que estava
+incompleta) ou se é sobra que precisa ser desfeita.
+
+
 ## Verificação
 
 ### Passada mecânica (sem modelo)
@@ -261,10 +269,86 @@ ou externo, um programa oper�vel ou um arquivo em lotes.
 
 Graus de prova: 2 executado(s), 2 para julgamento (de 4).
 
+### Passada mecânica (sem modelo)
 
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
+- [executado] `systemd/shopee-rodizio.service` existe com as seções `[Unit]`, `[Service]` (incluindo `Restart=on-failure` e `ExecStart`) e `[Install]`. — `find /C "Restart=on-failure" systemd/shopee-rodizio.service` → **PASSOU**
+- [julgado] README.md tem uma seção de deploy com os 5 passos descritos no Contexto, com comandos reais (não placeholder). — sem comando declarado; fica para o verificador.
+- [julgado] `uv run ruff check .` continua sem erro após esta tarefa (nenhum código Python novo quebrando lint). — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 2 executado(s), 2 para julgamento (de 4).
+
+### Ciclo 1 — Verificação completa (testador)
+
+- **[PASSOU] [executado] A suíte do projeto continua passando (não quebrou o que já existia)**
+  Comando: `.venv\Scripts\python.exe -m pytest -q`
+  Saída: `55 passed in 1.16s`
+
+- **[PASSOU] [executado] `systemd/shopee-rodizio.service` existe com as seções `[Unit]`, `[Service]` (incluindo `Restart=on-failure` e `ExecStart`) e `[Install]`**
+  Comando: `find /C "Restart=on-failure" systemd\shopee-rodizio.service` (via cmd.exe)
+  Saída: `---------- SYSTEMD\SHOPEE-RODIZIO.SERVICE: 1`
+  Inspecionado: arquivo tem as 3 seções exigidas com campos corretos
+
+- **[PASSOU] [julgado] README.md tem uma seção de deploy com os 5 passos descritos no Contexto, com comandos reais (não placeholder)**
+  Base: leitura da seção "## Deploy no BTT Pi (systemd)" (linhas 25–78 do README).
+  Verificados os 5 passos:
+  1. Copiar/clonar o projeto (comando `git clone` real, linhas 33–40)
+  2. Instalar `uv` no SBC (script `curl -LsSf https://astral.sh/uv/install.sh | sh`, linhas 42–49)
+  3. Criar `config.toml` (comando `cp config.example.toml config.toml`, linhas 51–57)
+  4. Instalar e ativar systemd (comandos `sudo cp`, `daemon-reload`, `enable --now`, linhas 59–65)
+  5. Acompanhar o log (`journalctl -u shopee-rodizio -f`, linhas 67–78)
+  Todos com comandos reais, sem placeholders.
+
+- **[PASSOU] [executado] `uv run ruff check .` continua sem erro após esta tarefa (nenhum código Python novo quebrando lint)**
+  Comando: `.venv\Scripts\python.exe -m ruff check .` (equivalente a `uv run ruff check .`, já que `uv` não está no PATH)
+  Saída: `All checks passed!`
+
+Suíte completa: 55 passou, 0 falhou
+Graus de prova: 4 executados, 0 inspecionados, 0 julgados
 
 
 ## Conformidade
 
+Conformidade: cumpre
+
+- `systemd/shopee-rodizio.service` existe com `[Unit]`, `[Service]` (`Restart=on-failure`
+  linha 19, `ExecStart` linha 18) e `[Install]` → `systemd/shopee-rodizio.service:1-25`,
+  confirmado no Ciclo 1 pelo testador (`find /C` → saída `1`, mecânica **PASSOU**) e
+  reconfirmado neste ciclo.
+- README.md tem a seção de deploy com os 5 passos do Contexto e comandos reais (não
+  placeholder) → `README.md:25-78` (`git clone`/`scp`, instalação de `uv`, `cp
+  config.example.toml config.toml`, `sudo cp`+`daemon-reload`+`enable --now`,
+  `journalctl -u shopee-rodizio -f`/`tail -f`), confirmado pelo testador no Ciclo 1
+  (**PASSOU**, julgado).
+- `uv run ruff check .` sem erro após a tarefa → nenhum `.py` alterado por T-009;
+  `.venv\Scripts\python.exe -m ruff check .` → `All checks passed!`, confirmado pelo
+  testador no Ciclo 1 (**PASSOU**, executado).
+- Objetivo satisfeito no espírito: unidade systemd reinicia sozinha em crash
+  (`Restart=on-failure`/`RestartSec=10`), roda sob usuário sem root (`User=pi`/`Group=pi`,
+  documentado como recomendação, não obrigação, coerente com o Contexto), e o README leva
+  do zero (clonar o projeto) até o serviço rodando e observável (log).
+- Escopo: os dois ciclos de retrabalho (Ciclo 2 e 3) e a "Resolução do Impedimento" do
+  planejador não tocaram `.service` nem README — só o comando `verificar:` do critério 1
+  (`grep` → `find`, registrado em `DECISOES.md` 2026-08-25) e, neste commit, a prosa das
+  Notas de execução confirmando o resultado após a correção. Sem sobra fora de escopo.
+- `areas` respeitadas: nenhum arquivo fora de `systemd/shopee-rodizio.service` e `README.md`
+  foi alterado por conteúdo; `test-fase2.log`, sinalizado em todos os ciclos como fora das
+  `areas`, é artefato pré-existente do motor/pipeline (não gerado por esta tarefa) e segue
+  fora do commit revisado.
 
 ## Revisão
+
+Aprovado sem ressalvas. Nenhum arquivo de conteúdo foi tocado neste commit (`9f6391a`) —
+só a prosa de confirmação nas Notas de execução, a regeneração determinística de
+`_gestao/MAPA.md` (HEAD atualizado) e, no commit seguinte (`9546a54`), o preenchimento do
+hash `**Commit:**` que faltava. Verifiquei diretamente `systemd/shopee-rodizio.service`
+(3 seções corretas, `Restart=on-failure` presente) e `README.md:25-78` (5 passos com
+comandos reais) — nenhuma divergência do que o testador já havia registrado como PASSOU
+no Ciclo 1. A suíte (55 passed) e o lint (`ruff check .` limpo) já estavam confirmados e
+não são afetados por um commit que não muda código.
+
+Achado `[menor]`: a "Passada mecânica" ficou registrada 3 vezes na seção Verificação
+(reprovações mecânicas dos Ciclos 1–3, todas por ausência de `grep` no PATH da passada,
+não por defeito de conteúdo) antes da correção do `verificar:` pelo planejador — histórico
+correto e já explicado em `DECISOES.md`, só fica maior que o necessário para releitura
+futura; não é motivo de reprovação.
