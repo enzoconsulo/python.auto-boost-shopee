@@ -2,11 +2,11 @@
 id: T-009
 titulo: Unidade systemd e documentação de deploy no BTT Pi
 projeto: shopee-rodizio
-status: em-execucao
+status: em-teste
 prioridade: media
 dependencias: [T-008]
 areas: [systemd/shopee-rodizio.service, README.md]
-tentativas: 0
+tentativas: 1
 agente: operacao-sbc
 criada: 2026-08-24
 atualizada: 2026-08-25
@@ -207,6 +207,27 @@ reescrever a tarefa) e `ultima-reprovacao` removida.
 
 Decisão de projeto registrada em `_gestao/DECISOES.md` (2026-08-25) para não repetir o
 mesmo desperdício em tarefas futuras.
+
+### Confirmação após correção do `verificar:` (planejador zerou `tentativas`)
+
+O planejador já corrigiu o único defeito real (o comando `verificar:` do 1º critério, agora
+`find /C "Restart=on-failure" systemd/shopee-rodizio.service`) e zerou `tentativas`. Conteúdo
+de `.service` e README não mudou desde o Ciclo 1 — só reconfirmei os três critérios nesta
+execução, via `cmd.exe` (mesma invocação da passada mecânica no Windows) e PowerShell:
+
+- `find /C "Restart=on-failure" systemd\shopee-rodizio.service` → `---------- SYSTEMD\SHOPEE-RODIZIO.SERVICE: 1`, saída 0.
+- README.md tem a seção `## Deploy no BTT Pi (systemd)` (linha 25) com os 5 passos do Contexto.
+- `.venv\Scripts\python.exe -m ruff check .` → `All checks passed!` (equivalente a `uv run ruff check .`, já que `uv` não está no `PATH` deste agente).
+
+Nenhum arquivo de conteúdo foi alterado neste ciclo.
+
+**Reproduzir:**
+```
+cmd /c find /C "Restart=on-failure" systemd\shopee-rodizio.service
+.venv\Scripts\python.exe -m ruff check .
+```
+
+**Commit:** `<preencher após o commit>`
 
 ## Verificação
 
