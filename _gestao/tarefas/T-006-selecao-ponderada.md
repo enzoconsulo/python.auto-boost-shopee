@@ -2,11 +2,11 @@
 id: T-006
 titulo: Sorteio ponderado de itens sem reposição por ciclo
 projeto: shopee-rodizio
-status: pronta
+status: em-execucao
 prioridade: alta
 dependencias: [T-002, T-003]
 areas: [src/shopee_rodizio/selecao.py, tests/test_selecao.py]
-tentativas: 0
+tentativas: 1
 agente: config-estado
 criada: 2026-08-24
 atualizada: 2026-08-24
@@ -47,6 +47,30 @@ usar `historico_recente` (T-003) para isso, documente a decisão nas Notas de ex
 
 ## Notas de execução
 
+Implementado `src/shopee_rodizio/selecao.py` com `selecionar(itens, limite_slots, rng=random)`:
+sorteio ponderado sem reposição usando `rng.choices(..., weights=..., k=1)` repetido
+`limite_slots` vezes, removendo o escolhido a cada rodada. Quando `limite_slots >=
+len(itens)`, devolve todos os itens sem sortear. `rng` aceita `random.Random(seed)` para
+determinismo em teste (assinatura usa o módulo `random` como padrão, mas qualquer objeto
+com `.choices` compatível serve).
+
+Teste escrito antes da implementação (`tests/test_selecao.py`): rodei `pytest
+tests/test_selecao.py -q` e confirmei o vermelho (`ModuleNotFoundError`) antes de criar
+`selecao.py`; depois da implementação, os 4 casos passaram. Cobre os 4 critérios: (a) sem
+repetição dentro do sorteio, (b) respeita `limite_slots`, (c) `limite_slots >= len(itens)`
+devolve todos, (d) teste estatístico (500 sorteios, RNG semeado) confirma que o item de
+peso 20 é escolhido mais vezes que os de peso 1.
+
+Não usei `estado.py`/`historico_recente` nesta versão — conforme o Contexto da tarefa,
+desempate/histórico entre ciclos fica para melhoria futura (RF-03 pede só sorteio por
+peso).
+
+Não foi necessário registrar nova decisão em `DECISOES.md`: nenhuma dependência nova,
+algoritmo cabe abaixo do limiar de 50 linhas (ficou com 23).
+
+**Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_selecao.py -q`
+(nota: `uv` não está no PATH deste ambiente; usei o interpretador do venv diretamente —
+mesmo comportamento do critério `uv run pytest ...`)
 
 ## Verificação
 

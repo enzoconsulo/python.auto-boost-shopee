@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 20ced72 · 2026-08-25 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 03d4780 · 2026-08-25 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -15,8 +15,8 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
-src/shopee_rodizio/  __init__.py, boost.py, cliente_shopee.py, config.py, estado.py
-tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_scaffold.py
+src/shopee_rodizio/  __init__.py, boost.py, cliente_shopee.py, config.py, estado.py, selecao.py
+tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_scaffold.py, test_selecao.py
 ```
 
 ## Símbolos públicos por arquivo
@@ -56,6 +56,9 @@ tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, t
 - `registrar_boost(estado: Estado, item_id: int, sucesso: bool, mensagem: str)`
 - `historico_recente(estado: Estado, item_id: int)`
 - `_gravar(estado: Estado)`
+
+### `src/shopee_rodizio/selecao.py` — Sorteio ponderado de itens, sem reposição, para um único ciclo de boost."""
+- `selecionar(itens: list[Item], limite_slots: int, rng: random.Random = random)`
 
 ### `tests/test_boost.py`
 - `_config(**overrides_ciclo)`
@@ -101,6 +104,13 @@ tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, t
 
 ### `tests/test_scaffold.py`
 - `test_pacote_existe()`
+
+### `tests/test_selecao.py`
+- `_itens(*pesos: int)`
+- `test_nunca_repete_item_dentro_do_mesmo_sorteio()`
+- `test_respeita_limite_de_slots()`
+- `test_limite_maior_ou_igual_ao_numero_de_itens_devolve_todos()`
+- `test_item_de_peso_maior_e_escolhido_com_frequencia_maior()`
 
 ## Limites deste mapa
 
