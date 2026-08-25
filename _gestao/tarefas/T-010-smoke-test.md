@@ -2,14 +2,14 @@
 id: T-010
 titulo: Script de smoke-test contra a API real da Shopee
 projeto: shopee-rodizio
-status: backlog
+status: pronta
 prioridade: media
 dependencias: [T-004, T-005]
 areas: [scripts/smoke_test.py, README.md]
 tentativas: 0
 agente: integracao-shopee
 criada: 2026-08-24
-atualizada: 2026-08-24
+atualizada: 2026-08-25
 ---
 
 ## Objetivo

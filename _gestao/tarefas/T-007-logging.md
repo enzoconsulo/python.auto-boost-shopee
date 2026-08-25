@@ -65,6 +65,15 @@ pedido pela tarefa).
 
 ## Verificação
 
+### Passada mecânica (sem modelo)
+
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
+- [julgado] `uv run pytest tests/test_logging_config.py -q` → todos os testes passam, incluindo um teste que escreve várias mensagens forçando rotação (arquivo pequeno de propósito no teste) e confirma que um arquivo `.1` (backup) é criado. — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `uv run ruff check src/shopee_rodizio/logging_config.py` → sem erros. — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 1 executado(s), 2 para julgamento (de 3).
+
+
 
 ## Conformidade
 

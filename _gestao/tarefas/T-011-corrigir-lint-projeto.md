@@ -2,7 +2,7 @@
 id: T-011
 titulo: Corrigir import não utilizado que quebra o lint do projeto inteiro
 projeto: shopee-rodizio
-status: em-teste
+status: concluida
 prioridade: alta
 dependencias: [T-003]
 areas: [tests/test_estado.py]
@@ -51,3 +51,50 @@ Removida a linha `from pathlib import Path` (não usada) de
 **Reproduzir:** `.venv\Scripts\python.exe -m ruff check . && .venv\Scripts\python.exe -m pytest -q`
 
 **Commit:** `cf2d31f`
+
+
+## Verificação
+
+### Ciclo 1
+
+- **[PASSOU] [executado] Critério 1: `ruff check .` roda sem erro no projeto inteiro (exit 0)**
+  Comando: `.\.venv\Scripts\python.exe -m ruff check .`
+  Saída: `All checks passed!`
+
+- **[PASSOU] [executado] Critério 2: `pytest -q` continua com toda a suíte passando (sem regressão)**
+  Comando: `.\.venv\Scripts\python.exe -m pytest -q`
+  Saída: `35 passed in 0.54s`
+
+Suíte completa: 35 passou, 0 falhou — `.\.venv\Scripts\python.exe -m pytest -q`
+Graus de prova: 2 executados
+
+## Conformidade
+
+### Ciclo 1
+
+Conformidade: cumpre
+
+- `uv run ruff check .` roda sem erro no projeto inteiro → `tests/test_estado.py:1`
+  (linha `from pathlib import Path` removida no commit `cf2d31f`); confirmado
+  independentemente: `.venv\Scripts\python.exe -m ruff check .` → `All checks passed!`.
+- `uv run pytest -q` continua com toda a suíte passando → confirmado independentemente:
+  `.venv\Scripts\python.exe -m pytest -q` → `35 passed in 0.51s`.
+- Escopo: mudança de uma linha, exatamente a causa raiz apontada em
+  `_gestao/DECISOES.md` (entrada 2026-08-24, "Marco da Fase 1 reprovado"). Nada além
+  do import foi tocado no arquivo de teste; nenhum outro uso de `Path` no arquivo
+  (conferido: `Path` não aparece mais em `tests/test_estado.py`).
+
+## Revisão
+
+### Ciclo 1
+
+Aprovado sem ressalvas. Verifiquei:
+- O diff (`git show cf2d31f`) remove só as duas linhas do import não utilizado (com a
+  linha em branco associada) em `tests/test_estado.py`; nenhuma outra mudança de
+  código.
+- `Path` não é usado em nenhum outro ponto do arquivo — a remoção não deixa referência
+  quebrada.
+- Rodei `ruff check .` e `pytest -q` de forma independente (não apenas confiei no
+  relato do executor): ambos confirmam o que as Notas de execução descrevem.
+- `[menor]` `Commit:` gravado corretamente desta vez (`cf2d31f`), diferente do ciclo
+  anterior — nenhum achado de processo a repetir aqui.
