@@ -2,7 +2,7 @@
 id: T-008
 titulo: Orquestração do ciclo de rodízio e loop de agendamento
 projeto: shopee-rodizio
-status: em-teste
+status: em-revisao
 prioridade: alta
 dependencias: [T-003, T-005, T-006, T-007]
 areas: [src/shopee_rodizio/ciclo.py, src/shopee_rodizio/__main__.py, tests/test_ciclo.py]
@@ -111,6 +111,33 @@ executados (ver memória de projeto sobre isso, já registrada em ciclos anterio
 **Commit:** `5197e89`
 
 ## Verificação
+
+### Passada mecânica (sem modelo)
+
+- [executado] A suíte do projeto continua passando (não quebrou o que já existia) — `pytest` → **PASSOU**
+- [julgado] `uv run pytest tests/test_ciclo.py -q` → todos os testes passam, incluindo: ciclo com todos os boosts com sucesso, ciclo com pelo menos um boost falhando (rede ou API) sem que a exceção escape, e o histórico (estado) é gravado ao final do ciclo em ambos os casos. — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `uv run python -m shopee_rodizio --help` (ou equivalente) não lança traceback — mostra uso esperado do comando. — comando recusado: binario-nao-permitido; fica para o verificador.
+- [julgado] `uv run ruff check src/shopee_rodizio/ciclo.py src/shopee_rodizio/__main__.py` → sem erros. — comando recusado: binario-nao-permitido; fica para o verificador.
+
+Graus de prova: 1 executado(s), 3 para julgamento (de 4).
+
+### Ciclo 2
+
+- **[PASSOU] [executado] Critério 1: todos os testes de `test_ciclo.py` passam**
+  Comando: `.venv\Scripts\python.exe -m pytest tests/test_ciclo.py -q`
+  Saída: `7 passed in 0.45s` — todos os casos (sucesso, falha de API, exceção de rede, limite de slots, ciclo vazio, loop principal com iterações, loop principal resiliente) confirmados.
+
+- **[PASSOU] [executado] Critério 2: `--help` não lança traceback e mostra uso esperado**
+  Comando: `.venv\Scripts\python.exe -m shopee_rodizio --help`
+  Saída: mostra `usage: python -m shopee_rodizio [-h] [config]`, descrição do programa, argumentos posicionais e opções, sem erro.
+
+- **[PASSOU] [executado] Critério 3: `ruff check` dos dois arquivos passou**
+  Comando: `.venv\Scripts\python.exe -m ruff check src/shopee_rodizio/ciclo.py src/shopee_rodizio/__main__.py`
+  Saída: `All checks passed!`
+
+Suíte completa: 47 passed — `.venv\Scripts\python.exe -m pytest -q`
+Graus de prova: 4 executados, 0 inspecionados, 0 julgados
+
 
 
 ## Conformidade
