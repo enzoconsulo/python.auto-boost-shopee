@@ -2,14 +2,14 @@
 id: T-007
 titulo: Log em arquivo com rotação
 projeto: shopee-rodizio
-status: pronta
+status: em-teste
 prioridade: media
 dependencias: [T-002]
 areas: [src/shopee_rodizio/logging_config.py, tests/test_logging_config.py]
-tentativas: 0
+tentativas: 1
 agente: operacao-sbc
 criada: 2026-08-24
-atualizada: 2026-08-24
+atualizada: 2026-08-25
 ---
 
 ## Objetivo
@@ -35,6 +35,33 @@ pequeno, tipo 3) — documente o padrão escolhido nas Notas de execução.
 
 ## Notas de execução
 
+Implementado `src/shopee_rodizio/logging_config.py` com uma única função pública
+`configurar(caminho_log: str, max_bytes: int = ..., backup_count: int = ...) -> None`,
+que configura o logger nomeado `"shopee_rodizio"` com um `RotatingFileHandler` (stdlib).
+Formato de linha: `%(asctime)s %(levelname)s %(message)s` (`asctime` no formato
+`AAAA-MM-DD HH:MM:SS`) — dá para auditar com `tail -f` o que foi impulsionado e quando
+(RF-07).
+
+Padrões escolhidos para o SBC (pouco espaço em disco): `max_bytes=2 MiB`,
+`backup_count=3` — até ~8 MiB de log no total. `configurar` cria o diretório pai de
+`caminho_log` se não existir, e é idempotente (fecha e remove handlers antigos antes de
+adicionar o novo), para suportar reconfiguração sem duplicar linhas — não há uso disso no
+projeto ainda (T-008 chama uma vez no início do processo), mas evita duplicação
+silenciosa se algum teste ou script futuro chamar mais de uma vez no mesmo processo.
+
+Arquivos criados:
+- `src/shopee_rodizio/logging_config.py`
+- `tests/test_logging_config.py` (5 casos: escreve e persiste mensagem, formato de linha
+  com timestamp/nível/mensagem, rotação por tamanho gera `.1`, cria diretório pai
+  ausente, chamada dupla não duplica handlers — todos escritos antes da implementação e
+  vistos falhar por `ModuleNotFoundError` antes de existir o módulo).
+
+Nenhuma dependência nova (só `logging`/`logging.handlers`/`pathlib` da stdlib, conforme
+pedido pela tarefa).
+
+**Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_logging_config.py -q`
+
+**Commit:** `<preencher no passo seguinte>`
 
 ## Verificação
 

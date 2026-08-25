@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: d081de2 · 2026-08-25 -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: ae44cf6 · 2026-08-25 -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -15,8 +15,8 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 (raiz)  .gitignore, CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
 _gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md
-src/shopee_rodizio/  __init__.py, boost.py, cliente_shopee.py, config.py, estado.py, selecao.py
-tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_scaffold.py, test_selecao.py
+src/shopee_rodizio/  __init__.py, boost.py, cliente_shopee.py, config.py, estado.py, logging_config.py, selecao.py
+tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, test_logging_config.py, test_scaffold.py, test_selecao.py
 ```
 
 ## Símbolos públicos por arquivo
@@ -56,6 +56,9 @@ tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, t
 - `registrar_boost(estado: Estado, item_id: int, sucesso: bool, mensagem: str)`
 - `historico_recente(estado: Estado, item_id: int)`
 - `_gravar(estado: Estado)`
+
+### `src/shopee_rodizio/logging_config.py` — Configuração do logging do projeto: arquivo com rotação por tamanho (stdlib)."""
+- `configurar(caminho_log: str, max_bytes: int = _MAX_BYTES_PADRAO, backup_count: int = _BACKUP_COUNT_P…)`
 
 ### `src/shopee_rodizio/selecao.py` — Sorteio ponderado de itens, sem reposição, para um único ciclo de boost."""
 - `selecionar(itens: list[Item], limite_slots: int, rng: random.Random = random)`
@@ -101,6 +104,14 @@ tests/  test_boost.py, test_cliente_shopee.py, test_config.py, test_estado.py, t
 - `test_escrita_usa_arquivo_temporario_e_nao_sobra_tmp_orfao(tmp_path)`
 - `test_historico_recente_filtra_por_item_id(tmp_path)`
 - `test_historico_recente_sem_registros_devolve_lista_vazia(tmp_path)`
+
+### `tests/test_logging_config.py`
+- `_limpar_handlers(logger)`
+- `test_configurar_cria_arquivo_de_log_com_mensagem(tmp_path)`
+- `test_configurar_formato_de_linha_inclui_timestamp_nivel_e_mensagem(tmp_path)`
+- `test_configurar_rotaciona_quando_arquivo_excede_max_bytes(tmp_path)`
+- `test_configurar_cria_diretorio_pai_do_log_se_nao_existir(tmp_path)`
+- `test_configurar_chamado_duas_vezes_nao_duplica_handlers(tmp_path)`
 
 ### `tests/test_scaffold.py`
 - `test_pacote_existe()`
