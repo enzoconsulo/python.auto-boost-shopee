@@ -115,14 +115,34 @@ Depois desse passo único, nunca mais é preciso rodar esse script (nem intervir
 de novo): `cliente_shopee.py` renova o `access_token` sozinho a cada ciclo e persiste o
 `refresh_token` rotacionado em `token.json`, sobrevivendo a restarts do systemd.
 
+Se a Shopee recusar a troca do código com `source_ip_undeclared`, o app está com IP
+Whitelist ativado no Open Platform Console — descubra o IP público do BTT Pi
+(`curl -4 ifconfig.me`) e cadastre-o em App list > IP Address Whitelist antes de tentar de
+novo (o `code` copiado da URL expira rápido; se expirar, rode `gerar_token.py` de novo para
+pegar um `code` fresco).
+
+## Preencher [[itens]] automaticamente
+
+Não precisa digitar item por item: com `config.toml` já com tokens válidos (passo
+anterior), rode:
+
+```
+uv run python scripts/sincronizar_itens.py caminho/para/config.toml
+```
+
+Ele lista os anúncios ativos (`item_status = NORMAL`) da loja via `get_item_list` e
+regenera o `[[itens]]` sozinho — pesos já definidos são preservados, itens novos entram
+com peso 1 (ajustável com `--peso-padrao`), e itens que saíram do ar são removidos da
+rotação (a lista de removidos é impressa, nada some silenciosamente). Rode de novo sempre
+que o catálogo mudar.
+
 ## Confirmar o endpoint antes do primeiro deploy
 
-O caminho exato do endpoint de impulsionamento (`ciclo.endpoint_boost`) e os nomes de
-parâmetro usados em `boost.py` são um palpite plausível — a documentação pública da
-Shopee Open Platform não confirma esse endpoint sem login no portal do desenvolvedor (ver
-`_gestao/DECISOES.md`, "Endpoint de boost da Shopee: incerteza registrada"). Antes de
-colocar o serviço em produção contínua, rode o smoke-test com suas credenciais reais para
-confirmar (ou revelar que precisa ajustar) esse endpoint:
+O caminho do endpoint de impulsionamento (`/api/v2/product/boost_item`) e o formato do
+payload (`item_id_list`) já foram confirmados contra uma conta real em 2026-08-25 (ver
+`_gestao/DECISOES.md`), mas cada conta/app tem suas próprias permissões e restrições —
+antes de colocar o serviço em produção contínua, rode o smoke-test com suas credenciais
+reais para confirmar que o boost funciona na sua conta especificamente:
 
 ```
 uv run python scripts/smoke_test.py caminho/para/config.toml
