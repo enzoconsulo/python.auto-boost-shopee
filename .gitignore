@@ -9,3 +9,5 @@ config.toml
 token.json
 estado.json
 *.log
+
+analista_dados_shopee/

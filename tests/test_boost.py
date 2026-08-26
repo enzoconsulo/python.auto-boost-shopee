@@ -44,9 +44,7 @@ def test_impulsionar_com_sucesso_devolve_resultado_positivo():
     assert resultado.sucesso is True
     assert resultado.mensagem
 
-    cliente.chamar.assert_called_once_with(
-        ENDPOINT_BOOST, {"item_id": 42, "shop_id": SHOP_ID}
-    )
+    cliente.chamar.assert_called_once_with(ENDPOINT_BOOST, {"item_id_list": [42]})
 
 
 def test_impulsionar_usa_endpoint_e_shop_id_da_config():
@@ -58,9 +56,7 @@ def test_impulsionar_usa_endpoint_e_shop_id_da_config():
 
     impulsionar(cliente, config, item_id=7)
 
-    cliente.chamar.assert_called_once_with(
-        outro_endpoint, {"item_id": 7, "shop_id": SHOP_ID}
-    )
+    cliente.chamar.assert_called_once_with(outro_endpoint, {"item_id_list": [7]})
 
 
 def test_impulsionar_erro_da_api_devolve_resultado_negativo_sem_lancar():

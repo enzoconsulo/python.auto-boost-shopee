@@ -65,6 +65,18 @@ configurável + smoke-test manual (T-010) transfere a confirmação final para q
 acesso à conta real (o usuário), sem bloquear o resto da decomposição.
 **Quem:** planejador
 
+## 2026-08-25 — Endpoint de boost da Shopee: payload confirmado contra conta real
+**Decisão:** `boost.py` chama `v2.product.boost_item` com `{"item_id_list": [item_id]}`
+(lista, mesmo para um item só) em vez do palpite anterior `{"item_id": item_id, "shop_id":
+...}`; `shop_id` sai do corpo (já vai assinado na query por `cliente_shopee.py`).
+**Motivo:** smoke-test real (T-010) contra a conta do usuário devolveu `product.error_unknown`
+com o payload antigo. Confirmado contra uma implementação irmã do mesmo usuário
+(`analista_dados_shopee/utils/shopee_core.py::impulsionar_itens`, já validada ao vivo em
+produção) que o endpoint espera `item_id_list` — não `item_id` singular. Resolve a incerteza
+registrada em 2026-08-24 ("Endpoint de boost da Shopee: incerteza registrada"); o caminho
+(`/api/v2/product/boost_item`) já estava certo, só o formato do payload estava errado.
+**Quem:** usuário (via depuração ao vivo no deploy)
+
 ## 2026-08-25 — T-009: `verificar:` de arquivo texto deve usar `find`, não `grep`, nesta máquina
 **Decisão:** critérios `verificar:` que checam substring em arquivo (unidade systemd,
 config, etc.) usam `find /C "<string>" <arquivo>` (nativo do Windows, `System32`), nunca
