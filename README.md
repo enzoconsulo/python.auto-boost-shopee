@@ -156,3 +156,21 @@ Se a mensagem indicar `path`/parâmetro inválido, ajuste `ciclo.endpoint_boost`
 
 Atenção: cada execução faz uma chamada real de impulsionamento (consome o limite da sua
 conta), então rode-o manualmente, não em automação.
+
+## Atalhos do dia a dia (scripts/atalhos/)
+
+Depois do deploy inicial, o operacional do dia a dia é só isto — rode a partir da raiz do
+projeto no BTT Pi (`bash scripts/atalhos/<nome>.sh`, funciona mesmo sem o bit de execução):
+
+| Script | O que faz |
+|---|---|
+| `instalar_servico.sh` | Copia a unidade systemd, `daemon-reload`, `enable --now`. Idempotente — rode de novo após um `git pull` que mude `systemd/shopee-rodizio.service`. |
+| `iniciar_servico.sh` | `systemctl start` (serviço já instalado, só parado). |
+| `parar_servico.sh` | `systemctl stop` (não desabilita o start automático no boot). |
+| `reiniciar_servico.sh` | `systemctl restart` — necessário depois de editar `config.toml` ou atualizar o código. |
+| `status_servico.sh` | Mostra se está rodando, há quanto tempo, e as últimas linhas de log. |
+| `ver_logs.sh [N]` | Segue o log ao vivo (`journalctl -f`); `Ctrl+C` só fecha a visualização, o serviço continua rodando. |
+| `editar_pesos.sh` | Abre `config.toml` no editor e, ao sair, já oferece reiniciar o serviço para aplicar. |
+| `sincronizar_itens.sh` | `scripts/sincronizar_itens.py` já apontando pro `config.toml` do projeto. |
+| `gerar_token.sh` | `scripts/gerar_token.py` já apontando pro `config.toml` do projeto. |
+| `smoke_test.sh` | `scripts/smoke_test.py` já apontando pro `config.toml` do projeto (chamada real de boost). |
