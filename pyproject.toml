@@ -27,6 +27,8 @@ dev = [
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+extend-exclude = ["analista_dados_shopee"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
+testpaths = ["tests"]

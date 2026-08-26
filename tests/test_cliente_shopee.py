@@ -202,6 +202,26 @@ def test_chamar_falha_ao_renovar_token_devolve_erro_sem_chamar_endpoint_alvo(pos
     assert post_mock.call_count == 1
 
 
+@patch("shopee_rodizio.cliente_shopee.requests.get")
+def test_chamar_com_metodo_get_manda_params_na_query_sem_corpo(get_mock):
+    get_mock.return_value = _resposta({"error": "", "response": {"item": []}})
+    cliente = _cliente()
+
+    resultado = cliente.chamar(
+        "/api/v2/product/get_item_list",
+        {"offset": 0, "page_size": 50, "item_status": "NORMAL"},
+        metodo="GET",
+    )
+
+    assert resultado.sucesso is True
+    get_mock.assert_called_once()
+    _, kwargs = get_mock.call_args
+    assert kwargs["params"]["offset"] == 0
+    assert kwargs["params"]["page_size"] == 50
+    assert kwargs["params"]["item_status"] == "NORMAL"
+    assert kwargs["params"]["access_token"] == ACCESS_TOKEN
+
+
 def test_token_property_reflete_estado_atual_do_cliente():
     cliente = _cliente()
     token = cliente.token

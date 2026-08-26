@@ -91,8 +91,12 @@ class ClienteShopee:
     def token(self) -> Token:
         return self._token
 
-    def chamar(self, path: str, params: dict) -> Resultado:
+    def chamar(self, path: str, params: dict, *, metodo: str = "POST") -> Resultado:
         """Faz uma chamada de nível loja assinada, renovando o token antes se necessário.
+
+        `metodo="GET"` manda `params` como query string em vez de corpo JSON — é o que os
+        endpoints de LEITURA da Shopee (ex.: `get_item_list`) exigem; os de escrita
+        (ex.: `boost_item`) usam o padrão `"POST"`.
 
         Devolve sempre um `Resultado`: nenhuma exceção de rede/API escapa daqui.
         """
@@ -113,7 +117,7 @@ class ClienteShopee:
                     return Resultado(sucesso=False, erro=erro)
                 token_renovado = self._aplicar_renovacao(dados_renov)
 
-            dados = self._requisitar(path, params, nivel_loja=True)
+            dados = self._requisitar(path, params, nivel_loja=True, metodo=metodo)
             erro = _erro_api(dados)
             if erro:
                 # a renovação já invalidou o refresh_token antigo: o token novo precisa
@@ -139,7 +143,9 @@ class ClienteShopee:
         self._token = novo
         return novo
 
-    def _requisitar(self, path: str, params: dict, *, nivel_loja: bool) -> dict:
+    def _requisitar(
+        self, path: str, params: dict, *, nivel_loja: bool, metodo: str = "POST"
+    ) -> dict:
         timestamp = int(datetime.now(UTC).timestamp())
         if nivel_loja:
             base = base_loja(
@@ -161,8 +167,13 @@ class ClienteShopee:
             query["access_token"] = self._token.access_token
             query["shop_id"] = self._shop_id
 
-        resposta = requests.post(
-            self._base_url + path, params=query, json=params, timeout=self._timeout
-        )
+        if metodo == "GET":
+            resposta = requests.get(
+                self._base_url + path, params={**query, **params}, timeout=self._timeout
+            )
+        else:
+            resposta = requests.post(
+                self._base_url + path, params=query, json=params, timeout=self._timeout
+            )
         resposta.raise_for_status()
         return resposta.json()
