@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -34,6 +34,14 @@ class CaminhosConfig:
 
 
 @dataclass(frozen=True)
+class RedeConfig:
+    """Seção opcional: ausente em config.toml existente = sem proxy, comportamento igual
+    a antes desta seção existir."""
+
+    proxy_https: str | None = None
+
+
+@dataclass(frozen=True)
 class Item:
     id: int
     peso: int
@@ -45,6 +53,7 @@ class Config:
     ciclo: CicloConfig
     caminhos: CaminhosConfig
     itens: list[Item]
+    rede: RedeConfig = field(default_factory=RedeConfig)
 
 
 _CAMPOS_SHOPEE = ("partner_id", "partner_key", "shop_id", "access_token", "refresh_token")
@@ -73,12 +82,14 @@ def _validar(dados: dict) -> Config:
         raise ConfigError("campo ausente: itens (é preciso ao menos um [[itens]])")
 
     itens = [_validar_item(item, i) for i, item in enumerate(itens_brutos)]
+    rede = RedeConfig(proxy_https=dados.get("rede", {}).get("proxy_https"))
 
     return Config(
         shopee=ShopeeCredenciais(**shopee),
         ciclo=CicloConfig(**ciclo),
         caminhos=CaminhosConfig(**caminhos),
         itens=itens,
+        rede=rede,
     )
 
 

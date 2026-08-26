@@ -48,6 +48,7 @@ def _cliente_de(config: Config) -> ClienteShopee:
         access_token=config.shopee.access_token,
         refresh_token=config.shopee.refresh_token,
         expira_em=None,
+        proxy_https=config.rede.proxy_https,
     )
 
 

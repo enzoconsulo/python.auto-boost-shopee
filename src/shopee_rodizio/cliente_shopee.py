@@ -78,6 +78,7 @@ class ClienteShopee:
         base_url: str = BASE_URL,
         timeout: int = TIMEOUT_PADRAO,
         margem: timedelta = MARGEM_RENOVACAO,
+        proxy_https: str | None = None,
     ) -> None:
         self._partner_id = partner_id
         self._partner_key = partner_key
@@ -86,6 +87,10 @@ class ClienteShopee:
         self._base_url = base_url
         self._timeout = timeout
         self._margem = margem
+        # todas as chamadas (inclusive renovação de token) saem por este proxy quando
+        # configurado — fixa o IP de saída visto pela Shopee, independente do IP dinâmico
+        # do host onde o serviço roda. Ver README, "IP de saída fixo".
+        self._proxies = {"http": proxy_https, "https": proxy_https} if proxy_https else None
 
     @property
     def token(self) -> Token:
@@ -169,11 +174,18 @@ class ClienteShopee:
 
         if metodo == "GET":
             resposta = requests.get(
-                self._base_url + path, params={**query, **params}, timeout=self._timeout
+                self._base_url + path,
+                params={**query, **params},
+                timeout=self._timeout,
+                proxies=self._proxies,
             )
         else:
             resposta = requests.post(
-                self._base_url + path, params=query, json=params, timeout=self._timeout
+                self._base_url + path,
+                params=query,
+                json=params,
+                timeout=self._timeout,
+                proxies=self._proxies,
             )
         resposta.raise_for_status()
         return resposta.json()

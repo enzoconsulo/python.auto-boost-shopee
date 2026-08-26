@@ -71,13 +71,16 @@ def _extrair_code_e_shop_id(url_colada: str) -> tuple[str, int]:
     return code.group(1), int(shop_id.group(1))
 
 
-def _trocar_code_por_tokens(partner_id: int, partner_key: str, code: str, shop_id: int) -> dict:
+def _trocar_code_por_tokens(
+    partner_id: int, partner_key: str, code: str, shop_id: int, proxy_https: str | None = None
+) -> dict:
     timestamp = int(time.time())
     base = base_publica(partner_id, PATH_TROCA_CODIGO, timestamp)
     sign = assinatura(partner_key, base)
     url = f"{BASE_URL}{PATH_TROCA_CODIGO}?partner_id={partner_id}&timestamp={timestamp}&sign={sign}"
     payload = {"code": code, "shop_id": shop_id, "partner_id": partner_id}
-    resposta = requests.post(url, json=payload, timeout=30)
+    proxies = {"http": proxy_https, "https": proxy_https} if proxy_https else None
+    resposta = requests.post(url, json=payload, timeout=30, proxies=proxies)
     resposta.raise_for_status()
     return resposta.json()
 
@@ -128,7 +131,13 @@ def main(argv: list[str] | None = None) -> int:
     print("trocando o código pelos tokens definitivos...")
 
     try:
-        dados = _trocar_code_por_tokens(config.shopee.partner_id, config.shopee.partner_key, code, shop_id)
+        dados = _trocar_code_por_tokens(
+            config.shopee.partner_id,
+            config.shopee.partner_key,
+            code,
+            shop_id,
+            config.rede.proxy_https,
+        )
     except requests.exceptions.RequestException as exc:
         print(f"falha de rede ao chamar a Shopee: {exc}", file=sys.stderr)
         return 1

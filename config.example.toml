@@ -21,6 +21,12 @@ endpoint_boost = "/api/v2/product/boost_item"
 log = "shopee-rodizio.log"
 estado = "estado.json"
 
+# Seção opcional — sem ela, chamadas à Shopee saem direto (sem proxy), como sempre.
+# Descomente e aponte para o túnel SSH da VM de IP fixo se o whitelist da Shopee estiver
+# quebrando por causa de IP dinâmico (ver README, "IP de saída fixo").
+# [rede]
+# proxy_https = "socks5h://127.0.0.1:1080"
+
 # Um bloco [[itens]] por anúncio participante do rodízio. `peso` é relativo entre os
 # itens: quanto maior, mais frequentemente o item é sorteado para impulsionar.
 [[itens]]

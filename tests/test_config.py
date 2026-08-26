@@ -93,3 +93,14 @@ def test_limite_slots_invalido_levanta_erro(tmp_path):
     invalido = TOML_VALIDO.replace("limite_slots = 5", "limite_slots = 0")
     with pytest.raises(ConfigError, match="limite_slots"):
         carregar_config(_escrever(tmp_path, invalido))
+
+
+def test_config_sem_secao_rede_tem_proxy_https_none(tmp_path):
+    config = carregar_config(_escrever(tmp_path, TOML_VALIDO))
+    assert config.rede.proxy_https is None
+
+
+def test_config_com_secao_rede_carrega_proxy_https(tmp_path):
+    com_proxy = TOML_VALIDO + '\n[rede]\nproxy_https = "socks5h://127.0.0.1:1080"\n'
+    config = carregar_config(_escrever(tmp_path, com_proxy))
+    assert config.rede.proxy_https == "socks5h://127.0.0.1:1080"

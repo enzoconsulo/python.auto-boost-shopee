@@ -222,6 +222,31 @@ def test_chamar_com_metodo_get_manda_params_na_query_sem_corpo(get_mock):
     assert kwargs["params"]["access_token"] == ACCESS_TOKEN
 
 
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_chamar_com_proxy_configurado_manda_proxies_na_chamada(post_mock):
+    post_mock.return_value = _resposta({"error": "", "response": {"ok": True}})
+    cliente = _cliente(proxy_https="socks5h://127.0.0.1:1080")
+
+    cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+
+    _, kwargs = post_mock.call_args
+    assert kwargs["proxies"] == {
+        "http": "socks5h://127.0.0.1:1080",
+        "https": "socks5h://127.0.0.1:1080",
+    }
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_chamar_sem_proxy_configurado_nao_manda_proxies(post_mock):
+    post_mock.return_value = _resposta({"error": "", "response": {"ok": True}})
+    cliente = _cliente()
+
+    cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+
+    _, kwargs = post_mock.call_args
+    assert kwargs["proxies"] is None
+
+
 def test_token_property_reflete_estado_atual_do_cliente():
     cliente = _cliente()
     token = cliente.token

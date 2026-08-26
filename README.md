@@ -93,6 +93,58 @@ usuário sem privilégio de root se o seu SBC usa um diferente.
    tail -f /home/biqu/shopee-rodizio/shopee-rodizio.log
    ```
 
+## IP de saída fixo (Oracle Cloud Free Tier)
+
+O IP Whitelist da Shopee (seção abaixo) exige um IP fixo, mas a internet residencial do
+BTT Pi normalmente é dinâmica — o provedor pode trocar o IP público sem aviso (ex.: de
+madrugada), o que invalida o whitelist e derruba a renovação automática do token até
+alguém perceber e atualizar o IP na mão. A solução: em vez de depender do IP do Pi,
+todas as chamadas à Shopee saem por um túnel SSH até uma VM com IP público **fixo** —
+que dá pra ter de graça (sem cartão sendo cobrado) na Oracle Cloud Free Tier ("Always
+Free", tier permanente, não é trial).
+
+1. **Criar a VM gratuita:** conta na [Oracle Cloud](https://www.oracle.com/cloud/free/),
+   criar uma instância "Always Free" (Ampere A1 ou VM.Standard.E2.1.Micro, Ubuntu), anotar
+   o IP público dela — esse IP nunca muda enquanto a instância existir.
+
+2. **Gerar uma chave SSH dedicada a este túnel**, no BTT Pi, e autorizá-la na VM:
+
+   ```
+   ssh-keygen -t ed25519 -f ~/.ssh/id_shopee_tunnel -N ""
+   ssh-copy-id -i ~/.ssh/id_shopee_tunnel.pub ubuntu@<ip-publico-da-vm>
+   ```
+
+3. **Editar `systemd/shopee-proxy-tunnel.service`**, trocando `<IP-DA-VM-ORACLE>` pelo IP
+   público da VM (o caminho da chave já bate com o passo anterior).
+
+4. **Instalar o túnel:**
+
+   ```
+   scripts/atalhos/instalar_tunel.sh
+   ```
+
+   Ele abre um proxy SOCKS5 em `127.0.0.1:1080` no Pi, encaminhado pela VM — igual a
+   `instalar_servico.sh`, é systemd (`Restart=always`), reconecta sozinho se cair.
+
+5. **Apontar o `config.toml` pro proxy:**
+
+   ```toml
+   [rede]
+   proxy_https = "socks5h://127.0.0.1:1080"
+   ```
+
+   `cliente_shopee.py` e os scripts (`gerar_token.py`, `sincronizar_itens.py`,
+   `smoke_test.py`) passam a rotear toda chamada à Shopee por esse proxy automaticamente;
+   sem essa seção no `config.toml`, o comportamento continua igual a antes (chamada direta,
+   sem proxy).
+
+6. **Cadastrar o IP da VM (não mais o do Pi) no IP Whitelist da Shopee** — ver seção
+   seguinte. A partir daqui o whitelist nunca mais precisa ser tocado, porque quem aparece
+   pra Shopee é sempre o IP fixo da VM, independente do que o provedor de internet fizer
+   com o IP do Pi.
+
+Status do túnel: `scripts/atalhos/status_tunel.sh`.
+
 ## Gerar shop_id/access_token/refresh_token automaticamente
 
 A Shopee exige um login humano do dono da loja no navegador para autorizar o app — é o
@@ -116,10 +168,15 @@ de novo): `cliente_shopee.py` renova o `access_token` sozinho a cada ciclo e per
 `refresh_token` rotacionado em `token.json`, sobrevivendo a restarts do systemd.
 
 Se a Shopee recusar a troca do código com `source_ip_undeclared`, o app está com IP
-Whitelist ativado no Open Platform Console — descubra o IP público do BTT Pi
-(`curl -4 ifconfig.me`) e cadastre-o em App list > IP Address Whitelist antes de tentar de
-novo (o `code` copiado da URL expira rápido; se expirar, rode `gerar_token.py` de novo para
-pegar um `code` fresco).
+Whitelist ativado no Open Platform Console — descubra o IP que vai aparecer pra Shopee
+(`curl -4 ifconfig.me`; com o túnel da seção anterior configurado, é o IP fixo da VM, não
+o do Pi) e cadastre-o em App list > IP Address Whitelist antes de tentar de novo (o `code`
+copiado da URL expira rápido; se expirar, rode `gerar_token.py` de novo para pegar um
+`code` fresco).
+
+Esse mesmo erro pode voltar a aparecer, no meio da operação normal (não só na hora de
+gerar o token), se o IP que está cadastrado no whitelist mudar — é exatamente o problema
+que a seção anterior ("IP de saída fixo") resolve.
 
 ## Preencher [[itens]] automaticamente
 
@@ -165,6 +222,8 @@ projeto no BTT Pi (`bash scripts/atalhos/<nome>.sh`, funciona mesmo sem o bit de
 | Script | O que faz |
 |---|---|
 | `instalar_servico.sh` | Copia a unidade systemd, `daemon-reload`, `enable --now`. Idempotente — rode de novo após um `git pull` que mude `systemd/shopee-rodizio.service`. |
+| `instalar_tunel.sh` | Idem, para o túnel de IP fixo (`shopee-proxy-tunnel.service`) — ver "IP de saída fixo". |
+| `status_tunel.sh` | Mostra se o túnel de IP fixo está de pé. |
 | `iniciar_servico.sh` | `systemctl start` (serviço já instalado, só parado). |
 | `parar_servico.sh` | `systemctl stop` (não desabilita o start automático no boot). |
 | `reiniciar_servico.sh` | `systemctl restart` — necessário depois de editar `config.toml` ou atualizar o código. |

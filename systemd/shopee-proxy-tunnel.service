@@ -1,0 +1,31 @@
+# Túnel SSH (SOCKS5 local, porta 127.0.0.1:1080) até a VM gratuita da Oracle Cloud, usado
+# como IP de saída FIXO para as chamadas à Shopee — ver README.md, seção "IP de saída
+# fixo (Oracle Cloud Free Tier)". Sem isso, o IP dinâmico do provedor de internet muda de
+# tempos em tempos e invalida o IP Whitelist cadastrado no Open Platform Console.
+#
+# Antes de instalar, troque as DUAS linhas marcadas abaixo: o IP público da sua VM Oracle
+# e o caminho da chave SSH dedicada a este túnel (gerada com
+# `ssh-keygen -t ed25519 -f ~/.ssh/id_shopee_tunnel -N ""`, copiada para a VM com
+# `ssh-copy-id -i ~/.ssh/id_shopee_tunnel.pub ubuntu@<ip-da-vm>`).
+
+[Unit]
+Description=Tunel SSH (SOCKS5) para IP de saida fixo das chamadas a Shopee
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=biqu
+# troque <IP-DA-VM-ORACLE> pelo IP público fixo da instância Oracle Free Tier:
+ExecStart=/usr/bin/ssh -N -D 127.0.0.1:1080 \
+    -o ExitOnForwardFailure=yes \
+    -o ServerAliveInterval=30 \
+    -o ServerAliveCountMax=3 \
+    -o StrictHostKeyChecking=accept-new \
+    -i /home/biqu/.ssh/id_shopee_tunnel \
+    ubuntu@<IP-DA-VM-ORACLE>
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

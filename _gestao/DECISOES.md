@@ -92,3 +92,31 @@ correto desde o Ciclo 1 — o defeito era só o comando do critério. `find.exe`
 sai != 0 quando a contagem é zero) e é resolvido nativamente pelo `cmd.exe`, sem depender
 de nenhuma instalação POSIX-em-Windows. Confirmado via `cmd.exe /d /s /c` nesta máquina.
 **Quem:** planejador
+
+## 2026-08-26 — IP dinâmico do BTT Pi derrubou o IP Whitelist em produção; adicionado proxy opcional de IP fixo
+**Decisão:** `ClienteShopee` e os scripts que chamam a Shopee (`gerar_token.py`,
+`sincronizar_itens.py`, `smoke_test.py`) aceitam um `proxy_https` opcional (seção
+`[rede]` do `config.toml`, campo `proxy_https`, ausente = comportamento inalterado). O
+uso pretendido é um túnel SSH (SOCKS5 local) até uma VM com IP público fixo (Oracle Cloud
+Free Tier — grátis, "Always Free", não é trial), documentado em
+`systemd/shopee-proxy-tunnel.service` e no README ("IP de saída fixo"). Dependência nova:
+`pysocks` (exigida pelo `requests` para suportar o esquema `socks5h://`).
+**Motivo:** em produção real, o serviço rodou corretamente por ~8h (boosts com sucesso às
+04:58 UTC) e depois toda chamada — inclusive a renovação de `access_token` — passou a
+falhar com `403 Forbidden` em `/api/v2/auth/access_token/get`. Mesma assinatura do
+`source_ip_undeclared` já resolvido em 2026-08-24/25, mas desta vez sem nenhuma mudança de
+código: a causa mais provável é o provedor de internet residencial do usuário ter trocado
+o IP público do BTT Pi (DHCP lease renovado), invalidando o IP cadastrado no whitelist da
+Shopee. Como o whitelist da Shopee só aceita IP fixo cadastrado manualmente no Console (não
+há API pra automatizar isso), a opção que remove a causa raiz é parar de depender do IP do
+Pi: rotear as chamadas por uma VM de IP fixo. Usuário rejeitou explicitamente as alternativas
+de IP fixo pago pelo provedor (não queria "ligar pro provedor e resolver pepino") e de VPN
+comercial com add-on de IP dedicado (custo recorrente) — Oracle Free Tier foi a escolha por
+ser gratuita permanentemente. O proxy é opcional e por seção separada (não um campo
+obrigatório em `[shopee]`) porque a maioria dos deploys (IP fixo nativo, ou ainda não
+tendo passado por esse problema) não precisa dele — forçar a seção quebraria configs
+existentes sem necessidade.
+**Quem:** usuário (causa raiz ainda não 100% confirmada — hipótese de IP dinâmico é a mais
+provável dado o padrão do erro, mas não há como confirmar sem acesso ao histórico de IP do
+provedor; a mitigação resolve o problema independente da causa exata ser essa ou outra
+variação de IP não cadastrado).
