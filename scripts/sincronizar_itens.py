@@ -1,10 +1,11 @@
 """Puxa a lista real de anúncios ativos da loja e gera o bloco `[[itens]]` do
 `config.toml` sozinho — sem digitar item por item.
 
-Endpoint (`/api/v2/product/get_item_list`, GET, paginado por `offset`/`page_size`,
-filtrado por `item_status`) confirmado contra conta real via
-`analista_dados_shopee/workers/sync_catalogo.py` (implementação irmã do mesmo usuário,
-já validada em produção).
+Endpoints (`get_item_list` para os IDs ativos, `get_item_base_info` para os nomes — ambos
+GET) confirmados contra conta real via `analista_dados_shopee/workers/sync_catalogo.py`
+(implementação irmã do mesmo usuário, já validada em produção). O nome de cada item entra
+como comentário ao lado do `id` no `config.toml`, só para leitura humana — não afeta o
+funcionamento do rodízio.
 
 Uso:
     uv run python scripts/sincronizar_itens.py config.toml [--peso-padrao N]
@@ -26,7 +27,9 @@ from shopee_rodizio.cliente_shopee import ClienteShopee
 from shopee_rodizio.config import Config, ConfigError, carregar_config
 
 PATH_LISTA_ITENS = "/api/v2/product/get_item_list"
+PATH_INFO_ITENS = "/api/v2/product/get_item_base_info"
 PAGE_SIZE = 50
+LOTE_INFO = 50
 PESO_PADRAO = 1
 
 
@@ -80,8 +83,36 @@ def _buscar_item_ids_ativos(cliente: ClienteShopee) -> list[int]:
         offset += PAGE_SIZE
 
 
-def _regenerar_bloco_itens(texto: str, itens: list[tuple[int, int]]) -> str:
-    blocos = "".join(f"[[itens]]\nid = {item_id}\npeso = {peso}\n\n" for item_id, peso in itens)
+def _buscar_nomes(cliente: ClienteShopee, item_ids: list[int]) -> dict[int, str]:
+    """Nome de cada item, só para comentário no config.toml — cosmético, então uma
+    falha aqui não deve travar a sincronização (nomes ausentes ficam sem comentário)."""
+    nomes: dict[int, str] = {}
+    for inicio in range(0, len(item_ids), LOTE_INFO):
+        lote = item_ids[inicio : inicio + LOTE_INFO]
+        resultado = cliente.chamar(
+            PATH_INFO_ITENS,
+            {"item_id_list": ",".join(str(i) for i in lote)},
+            metodo="GET",
+        )
+        if not resultado.sucesso:
+            continue
+        for item in resultado.dados.get("response", {}).get("item_list", []):
+            nome = str(item.get("item_name", "")).strip().replace("\n", " ")
+            if nome:
+                nomes[item["item_id"]] = nome
+    return nomes
+
+
+def _regenerar_bloco_itens(
+    texto: str, itens: list[tuple[int, int]], nomes: dict[int, str] | None = None
+) -> str:
+    nomes = nomes or {}
+    blocos = "".join(
+        f"[[itens]]\nid = {item_id}"
+        + (f"  # {nomes[item_id]}" if nomes.get(item_id) else "")
+        + f"\npeso = {peso}\n\n"
+        for item_id, peso in itens
+    )
     marcador = re.search(r"(?m)^\[\[itens\]\]", texto)
     inicio = marcador.start() if marcador else len(texto.rstrip("\n")) + 2
     return texto[:inicio].rstrip("\n") + "\n\n" + blocos.rstrip("\n") + "\n"
@@ -108,13 +139,18 @@ def main(argv: list[str] | None = None) -> int:
         print("nenhum anúncio ativo (status NORMAL) encontrado nesta loja.", file=sys.stderr)
         return 1
 
+    print("buscando nomes dos itens...")
+    nomes = _buscar_nomes(cliente, ids_ativos)
+
     pesos_atuais = {item.id: item.peso for item in config.itens}
     itens_novos = [
         (item_id, pesos_atuais.get(item_id, args.peso_padrao)) for item_id in ids_ativos
     ]
     removidos = [item_id for item_id in pesos_atuais if item_id not in ids_ativos]
 
-    texto_atualizado = _regenerar_bloco_itens(Path(args.config).read_text(encoding="utf-8"), itens_novos)
+    texto_atualizado = _regenerar_bloco_itens(
+        Path(args.config).read_text(encoding="utf-8"), itens_novos, nomes
+    )
     Path(args.config).write_text(texto_atualizado, encoding="utf-8")
 
     print(f"{len(itens_novos)} item(ns) gravado(s) em {args.config}.")
