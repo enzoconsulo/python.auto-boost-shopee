@@ -49,11 +49,16 @@ uv run ruff check .
 - `src/shopee_rodizio/ciclo.py` — orquestra um ciclo: seleciona, impulsiona cada item,
   grava histórico; nunca deixa uma falha de item escapar.
 - `src/shopee_rodizio/__main__.py` — entrypoint: carrega config, configura logging, entra
-  no loop `while True: executar_ciclo(...); sleep(intervalo_horas * 3600)`; persiste o
-  token renovado (`token.json`, irmão do `estado.json`) para sobreviver a um restart do
-  systemd.
+  no loop `while True: executar_ciclo(...); sleep(intervalo_horas * 3600)`.
+- `src/shopee_rodizio/armazem_token.py` — `token.json` (irmão do `estado.json`) como fonte
+  única do token entre processos: o cliente relê antes de usar e renova sob lock de
+  arquivo, gravando na hora. `cliente_da_config(config)` monta o cliente ligado a ele — use
+  sempre esse, nunca um `ClienteShopee` com o token do `config.toml` (o refresh_token é de
+  uso único; renovar com uma cópia velha quebra a cadeia do serviço).
 - `src/shopee_rodizio/logging_config.py` — log em arquivo com rotação por tamanho.
 - `scripts/smoke_test.py` — diagnóstico manual de `endpoint_boost` contra a API real.
+- `scripts/emprestar_token.py` — empresta o access_token (JSON no stdout) para outro app
+  da mesma loja, chamado por SSH (o analista_dados_shopee do PC, via `TOKEN_VIA_PI`).
 - `systemd/shopee-rodizio.service` — unidade para deploy 24/7 no BTT Pi.
 
 `_gestao/MAPA.md` tem a assinatura de cada símbolo público; regenere com
@@ -64,8 +69,7 @@ uv run ruff check .
 - Testes em português, nomeando o comportamento (`test_ciclo_com_boost_falhando_...`).
 - Módulos internos que precisam ser interceptados por `patch.object` em teste são
   importados como módulo (`from . import boost`), não a função direta — ver `ciclo.py`.
-- Dataclasses de domínio (`Token`, `Item`, etc.) são `frozen=True`; comparação de token
-  por valor é o que detecta renovação em `__main__.executar_loop`.
+- Dataclasses de domínio (`Token`, `Item`, etc.) são `frozen=True`.
 - Escrita em disco de estado/token é sempre atômica (arquivo temporário + `os.replace`).
 
 ## Armadilhas conhecidas

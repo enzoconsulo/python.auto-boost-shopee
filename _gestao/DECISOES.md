@@ -120,3 +120,24 @@ existentes sem necessidade.
 provável dado o padrão do erro, mas não há como confirmar sem acesso ao histórico de IP do
 provedor; a mitigação resolve o problema independente da causa exata ser essa ou outra
 variação de IP não cadastrado).
+
+## 2026-09-14 — token.json vira fonte única entre processos; outro app pega o token emprestado
+**Decisão:** `ClienteShopee` aceita um `ArmazemToken` (`armazem_token.py`). Antes de cada
+uso, o cliente relê `token.json`. A renovação acontece sob lock exclusivo de arquivo
+(`token.json.lock`), relendo o arquivo dentro do lock e gravando o token novo antes de
+soltá-lo. O loop do `__main__` deixou de persistir o token ao fim do ciclo.
+`sincronizar_itens.py` e `smoke_test.py` passam a usar o mesmo armazém
+(`cliente_da_config`), e `gerar_token.py` grava também em `token.json`. Script novo:
+`scripts/emprestar_token.py`, que devolve no stdout um access_token válido por pelo menos
+N minutos (renovando sob o lock se preciso) sem expor o refresh_token.
+**Motivo:** o usuário vai rodar o analista_dados_shopee (PC, uso esporádico) na mesma
+loja e no mesmo app. Uma cadeia de refresh_token por app tem dois problemas: a do PC vence
+após 30 dias sem uso, e não há garantia do que a Shopee faz com a cadeia de um app quando a
+loja é reautorizada pelo outro. Com o serviço 24/7 como único dono do token e o PC pedindo o
+access_token emprestado por SSH, sobra uma autorização e uma cadeia. Para isso, o token não
+podia mais ficar só em memória no serviço (lido do disco só na subida): qualquer outro
+processo que renovasse invalidaria a cadeia dele. Isso já acontecia com
+`sincronizar_itens.py`/`smoke_test.py`, que renovavam a partir do refresh_token do
+`config.toml`, já consumido pelo serviço. Alternativa descartada: servidor HTTP no Pi para
+entregar o token (mais uma porta aberta e mais um serviço; o SSH já existe e já autentica).
+**Quem:** usuário (escolheu o Pi como dono do token) + executor

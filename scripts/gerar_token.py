@@ -1,6 +1,6 @@
 """Troca o código de autorização da Shopee Open Platform pelo par definitivo de
 `access_token`/`refresh_token`, descobre o `shop_id` e grava os três direto no
-config.toml.
+config.toml e no token.json que o serviço usa.
 
 Esse é o único passo que a Shopee não deixa automatizar: exige o dono da loja
 logado no navegador clicando em "Autorizar" — é o mecanismo de consentimento do
@@ -24,11 +24,13 @@ import argparse
 import re
 import sys
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import requests
 
-from shopee_rodizio.cliente_shopee import BASE_URL, assinatura, base_publica
+from shopee_rodizio.armazem_token import ArmazemToken, caminho_token
+from shopee_rodizio.cliente_shopee import BASE_URL, Token, assinatura, base_publica
 from shopee_rodizio.config import ConfigError, carregar_config
 
 PATH_AUTORIZACAO = "/api/v2/shop/auth_partner"
@@ -147,7 +149,20 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     _gravar_no_config(args.config, shop_id, dados["access_token"], dados["refresh_token"])
-    print(f"\n{args.config} atualizado com shop_id, access_token e refresh_token.")
+    # token.json é a fonte da verdade do serviço (armazem_token.py): sem isso, ele
+    # continuaria usando o token da autorização antiga
+    armazem = ArmazemToken(caminho_token(config))
+    with armazem.travado():
+        armazem.gravar(
+            Token(
+                access_token=dados["access_token"],
+                refresh_token=dados["refresh_token"],
+                expira_em=datetime.now(UTC) + timedelta(seconds=dados.get("expire_in", 0)),
+            )
+        )
+    print(f"\n{args.config} e {armazem.caminho} atualizados com os tokens novos.")
+    if shop_id != config.shopee.shop_id:
+        print("o shop_id mudou: reinicie o serviço (scripts/atalhos/reiniciar_servico.sh).")
     print("a partir de agora o serviço renova o token sozinho — não precisa rodar este script de novo.")
     return 0
 

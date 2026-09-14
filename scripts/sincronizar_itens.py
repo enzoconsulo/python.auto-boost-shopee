@@ -23,8 +23,9 @@ import re
 import sys
 from pathlib import Path
 
+from shopee_rodizio.armazem_token import cliente_da_config
 from shopee_rodizio.cliente_shopee import ClienteShopee
-from shopee_rodizio.config import Config, ConfigError, carregar_config
+from shopee_rodizio.config import ConfigError, carregar_config
 
 PATH_LISTA_ITENS = "/api/v2/product/get_item_list"
 PATH_INFO_ITENS = "/api/v2/product/get_item_base_info"
@@ -49,18 +50,6 @@ def _analisar_args(argv: list[str]) -> argparse.Namespace:
         help=f"peso atribuído a itens novos, sem peso definido ainda (padrão: {PESO_PADRAO})",
     )
     return parser.parse_args(argv)
-
-
-def _cliente_de(config: Config) -> ClienteShopee:
-    return ClienteShopee(
-        partner_id=config.shopee.partner_id,
-        partner_key=config.shopee.partner_key,
-        shop_id=config.shopee.shop_id,
-        access_token=config.shopee.access_token,
-        refresh_token=config.shopee.refresh_token,
-        expira_em=None,
-        proxy_https=config.rede.proxy_https,
-    )
 
 
 def _buscar_item_ids_ativos(cliente: ClienteShopee) -> list[int]:
@@ -128,7 +117,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"não foi possível carregar '{args.config}': {exc}", file=sys.stderr)
         return 1
 
-    cliente = _cliente_de(config)
+    # token.json compartilhado com o serviço: renovar com o refresh_token do config.toml
+    # (já consumido pelo serviço) falharia ou quebraria a cadeia dele
+    cliente = cliente_da_config(config)
     print("buscando anúncios ativos na Shopee...")
     try:
         ids_ativos = _buscar_item_ids_ativos(cliente)

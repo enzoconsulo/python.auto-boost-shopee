@@ -3,9 +3,11 @@ autenticada via `requests` e renovação proativa de `access_token`.
 
 Invariantes garantidas aqui:
 - nenhuma chamada sobe sem assinatura válida (`sign` na query);
-- o token renovado é devolvido em `Resultado.token_renovado` para o chamador persistir
-  (nunca fica só em memória — reinício do processo não pode perder um refresh_token);
-- nenhuma falha de rede/API escapa como exceção: tudo vira um `Resultado` de erro.
+- com `armazem` (ver `armazem_token.py`), o token é relido do disco antes de cada uso e
+  renovado sob lock entre processos, com o token novo gravado antes de soltar o lock — o
+  refresh_token é de uso único e mais de um processo usa a mesma loja;
+- o token renovado também volta em `Resultado.token_renovado`;
+- nenhuma falha de rede/API/disco escapa como exceção: tudo vira um `Resultado` de erro.
 """
 
 from __future__ import annotations
@@ -14,8 +16,12 @@ import hashlib
 import hmac
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 import requests
+
+if TYPE_CHECKING:
+    from .armazem_token import ArmazemToken
 
 BASE_URL = "https://partner.shopeemobile.com"
 TIMEOUT_PADRAO = 30
@@ -79,6 +85,7 @@ class ClienteShopee:
         timeout: int = TIMEOUT_PADRAO,
         margem: timedelta = MARGEM_RENOVACAO,
         proxy_https: str | None = None,
+        armazem: ArmazemToken | None = None,
     ) -> None:
         self._partner_id = partner_id
         self._partner_key = partner_key
@@ -91,6 +98,10 @@ class ClienteShopee:
         # configurado — fixa o IP de saída visto pela Shopee, independente do IP dinâmico
         # do host onde o serviço roda. Ver README, "IP de saída fixo".
         self._proxies = {"http": proxy_https, "https": proxy_https} if proxy_https else None
+        self._armazem = armazem
+        # a última gravação do token renovado falhou: até conseguir gravar, a memória tem o
+        # único refresh_token válido e o disco (com o token antigo) não pode sobrescrevê-la
+        self._token_nao_gravado = False
 
     @property
     def token(self) -> Token:
@@ -105,39 +116,84 @@ class ClienteShopee:
 
         Devolve sempre um `Resultado`: nenhuma exceção de rede/API escapa daqui.
         """
-        token_renovado: Token | None = None
+        garantia = self.garantir_token()
+        if not garantia.sucesso:
+            return garantia
+        token_renovado = garantia.token_renovado
+
         try:
-            if self._precisa_renovar():
-                dados_renov = self._requisitar(
-                    PATH_RENOVACAO,
-                    {
-                        "partner_id": self._partner_id,
-                        "shop_id": self._shop_id,
-                        "refresh_token": self._token.refresh_token,
-                    },
-                    nivel_loja=False,
-                )
-                erro = _erro_api(dados_renov)
-                if erro:
-                    return Resultado(sucesso=False, erro=erro)
-                token_renovado = self._aplicar_renovacao(dados_renov)
-
             dados = self._requisitar(path, params, nivel_loja=True, metodo=metodo)
-            erro = _erro_api(dados)
-            if erro:
-                # a renovação já invalidou o refresh_token antigo: o token novo precisa
-                # voltar ao chamador mesmo quando a chamada-alvo falha, ou se perde.
-                return Resultado(sucesso=False, erro=erro, token_renovado=token_renovado)
-            return Resultado(sucesso=True, dados=dados, token_renovado=token_renovado)
         except requests.exceptions.RequestException as exc:
-            return Resultado(
-                sucesso=False, erro=str(exc), token_renovado=token_renovado
-            )
+            return Resultado(sucesso=False, erro=str(exc), token_renovado=token_renovado)
 
-    def _precisa_renovar(self) -> bool:
+        erro = _erro_api(dados)
+        if erro:
+            # a renovação já invalidou o refresh_token antigo: o token novo precisa
+            # voltar ao chamador mesmo quando a chamada-alvo falha, ou se perde.
+            return Resultado(sucesso=False, erro=erro, token_renovado=token_renovado)
+        return Resultado(sucesso=True, dados=dados, token_renovado=token_renovado)
+
+    def garantir_token(self, margem: timedelta | None = None) -> Resultado:
+        """Garante um access_token válido por pelo menos `margem` (padrão: a margem do
+        cliente), renovando se preciso. Sucesso sem renovação devolve `token_renovado=None`.
+
+        Com `armazem`, relê o token do disco antes e renova sob o lock entre processos,
+        gravando o token novo antes de soltá-lo. Nunca lança.
+        """
+        margem = self._margem if margem is None else margem
+        try:
+            if self._armazem is None:
+                return self._renovar_se_preciso(margem)
+
+            self._recarregar_do_armazem()
+            if not self._token_nao_gravado and not self._precisa_renovar(margem):
+                return Resultado(sucesso=True)
+
+            with self._armazem.travado():
+                # outro processo pode ter renovado enquanto esperávamos o lock
+                self._recarregar_do_armazem()
+                if self._token_nao_gravado:
+                    self._gravar_no_armazem()
+                resultado = self._renovar_se_preciso(margem)
+                if resultado.token_renovado is not None:
+                    self._gravar_no_armazem()
+                return resultado
+        except (OSError, ValueError, KeyError) as exc:  # rede (RequestException é OSError), disco
+            return Resultado(sucesso=False, erro=str(exc))
+
+    def _recarregar_do_armazem(self) -> None:
+        if self._token_nao_gravado:
+            return
+        token = self._armazem.carregar()
+        if token is not None:
+            self._token = token
+
+    def _gravar_no_armazem(self) -> None:
+        self._token_nao_gravado = True
+        self._armazem.gravar(self._token)
+        self._token_nao_gravado = False
+
+    def _renovar_se_preciso(self, margem: timedelta) -> Resultado:
+        if not self._precisa_renovar(margem):
+            return Resultado(sucesso=True)
+        dados = self._requisitar(
+            PATH_RENOVACAO,
+            {
+                "partner_id": self._partner_id,
+                "shop_id": self._shop_id,
+                "refresh_token": self._token.refresh_token,
+            },
+            nivel_loja=False,
+        )
+        erro = _erro_api(dados)
+        if erro:
+            return Resultado(sucesso=False, erro=erro)
+        return Resultado(sucesso=True, token_renovado=self._aplicar_renovacao(dados))
+
+    def _precisa_renovar(self, margem: timedelta) -> bool:
         if self._token.expira_em is None:
             return True
-        return self._token.expira_em <= datetime.now(UTC) + self._margem
+        return self._token.expira_em <= datetime.now(UTC) + margem
 
     def _aplicar_renovacao(self, dados: dict) -> Token:
         novo = Token(

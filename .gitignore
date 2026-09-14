@@ -7,7 +7,13 @@ __pycache__/
 # credenciais/estado reais do usuário — nunca versionar
 config.toml
 token.json
+token.json.lock
+token.json.tmp
 estado.json
 *.log
 
 analista_dados_shopee/
+
+# chaves SSH da VM Oracle (nunca versionar)
+ssh-key-*.key
+ssh-key-*.key.pub

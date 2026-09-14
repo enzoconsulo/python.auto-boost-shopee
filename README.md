@@ -178,6 +178,26 @@ Esse mesmo erro pode voltar a aparecer, no meio da operação normal (não só n
 gerar o token), se o IP que está cadastrado no whitelist mudar — é exatamente o problema
 que a seção anterior ("IP de saída fixo") resolve.
 
+## Emprestar o token para outro app (analista_dados_shopee)
+
+O token da loja vive em `token.json`, e só há uma cadeia de `refresh_token` (que é de uso
+único). Todo processo relê esse arquivo antes de usar o token e renova sob lock
+(`token.json.lock`), gravando o token novo na hora. Por isso serviço, scripts e
+`gerar_token.py` convivem sem quebrar a cadeia um do outro.
+
+Outro app que chame a API da mesma loja **não deve ter autorização própria** (uma segunda
+autorização pode derrubar a do serviço). Em vez disso, ele pede um access_token emprestado
+por SSH:
+
+```
+ssh biqu@<ip-do-pi> "cd ~/shopee-rodizio && .venv/bin/python scripts/emprestar_token.py config.toml --minutos 60"
+```
+
+Saída: uma linha JSON `{"access_token", "expira_em", "shop_id", "partner_id"}`. Se o token
+tiver menos de `--minutos` de validade, o script renova antes, sob o mesmo lock. O
+`refresh_token` nunca sai do Pi. O analista_dados_shopee faz isso sozinho com
+`TOKEN_VIA_PI=biqu@<ip-do-pi>` no `CHAVES_DADOS.env` dele.
+
 ## Preencher [[itens]] automaticamente
 
 Não precisa digitar item por item: com `config.toml` já com tokens válidos (passo

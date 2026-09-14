@@ -17,9 +17,9 @@ from __future__ import annotations
 import argparse
 import sys
 
+from shopee_rodizio.armazem_token import cliente_da_config
 from shopee_rodizio.boost import impulsionar
-from shopee_rodizio.cliente_shopee import ClienteShopee
-from shopee_rodizio.config import Config, ConfigError, carregar_config
+from shopee_rodizio.config import ConfigError, carregar_config
 
 
 def _analisar_args(argv: list[str]) -> argparse.Namespace:
@@ -40,18 +40,6 @@ def _analisar_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _cliente_de(config: Config) -> ClienteShopee:
-    return ClienteShopee(
-        partner_id=config.shopee.partner_id,
-        partner_key=config.shopee.partner_key,
-        shop_id=config.shopee.shop_id,
-        access_token=config.shopee.access_token,
-        refresh_token=config.shopee.refresh_token,
-        expira_em=None,
-        proxy_https=config.rede.proxy_https,
-    )
-
-
 def main(argv: list[str] | None = None) -> int:
     args = _analisar_args(sys.argv[1:] if argv is None else argv)
 
@@ -62,7 +50,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     item_id = args.item_id if args.item_id is not None else config.itens[0].id
-    cliente = _cliente_de(config)
+    cliente = cliente_da_config(config)
 
     print(f"endpoint: {config.ciclo.endpoint_boost}")
     print(f"shop_id: {config.shopee.shop_id}")
@@ -80,13 +68,6 @@ def main(argv: list[str] | None = None) -> int:
             "Se a mensagem indicar path/parâmetro inválido, ajuste "
             "`ciclo.endpoint_boost` no config.toml e os nomes de parâmetro em "
             "`boost.py`, depois rode este script de novo."
-        )
-
-    if cliente.token.access_token != config.shopee.access_token:
-        print()
-        print(
-            "aviso: o access_token foi renovado durante esta chamada — atualize "
-            "config.toml (ou deixe o serviço persistir em token.json na próxima subida)."
         )
 
     return 0 if resultado.sucesso else 1

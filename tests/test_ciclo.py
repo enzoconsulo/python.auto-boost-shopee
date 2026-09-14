@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import patch
+from datetime import UTC, datetime, timedelta
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -91,9 +92,8 @@ def test_ciclo_com_excecao_inesperada_de_rede_nao_escapa_e_grava_falha(tmp_path)
 
 
 def test_ciclo_com_falha_ao_gravar_historico_nao_escapa(tmp_path):
-    # Se gravar o histórico falhar (I/O de SD card instável) DEPOIS de um boost ter renovado
-    # o token in-place, a exceção não pode escapar de `executar_ciclo` — senão o loop pularia
-    # a persistência do token novo (RF-02). `executar_ciclo` promete "Nunca lança".
+    # Se gravar o histórico falhar (I/O de SD card instável), a exceção não pode escapar de
+    # `executar_ciclo`, que promete "Nunca lança".
     config = _config(_itens(1, 2), limite_slots=2)
     estado = _estado(tmp_path)
 
@@ -195,117 +195,63 @@ def test_loop_principal_continua_apos_ciclo_lancar_excecao_inesperada(tmp_path, 
 # --- Persistência do token renovado (RF-02) ---------------------------------------------
 
 
-class _ClienteFake:
-    """Cliente mínimo para o loop: só precisa de um atributo `token` mutável, que o mock de
-    `boost.impulsionar` troca para simular a renovação in-place feita por `cliente.chamar`."""
+def _resposta(json_dados: dict) -> Mock:
+    resposta = Mock()
+    resposta.json.return_value = json_dados
+    resposta.raise_for_status.return_value = None
+    return resposta
 
-    def __init__(self, token):
-        self.token = token
 
+def test_loop_grava_token_renovado_em_token_json_ao_lado_do_estado(_config_arquivo):
+    # sem token.json, a primeira chamada renova (validade desconhecida) e o token novo tem
+    # de ir para o disco na hora — não só ficar em memória até um restart o perder
+    from shopee_rodizio.__main__ import executar_loop
+    from shopee_rodizio.armazem_token import ArmazemToken
 
-def test_persistir_e_carregar_token_faz_roundtrip(tmp_path):
-    from datetime import UTC, datetime
-
-    from shopee_rodizio.__main__ import _carregar_token, _persistir_token
-    from shopee_rodizio.cliente_shopee import Token
-
-    caminho = tmp_path / "token.json"
-    token = Token(
-        access_token="at-novo",
-        refresh_token="rt-novo",
-        expira_em=datetime(2030, 1, 1, tzinfo=UTC),
+    renovacao = _resposta(
+        {"access_token": "at-renovado", "refresh_token": "rt-renovado", "expire_in": 14400}
     )
-    _persistir_token(caminho, token)
-
-    assert _carregar_token(caminho) == token
-
-
-def test_carregar_token_inexistente_devolve_none(tmp_path):
-    from shopee_rodizio.__main__ import _carregar_token
-
-    assert _carregar_token(tmp_path / "nao-existe.json") is None
-
-
-def test_cliente_de_usa_token_persistido_em_vez_do_config_apos_restart():
-    from datetime import UTC, datetime
-
-    from shopee_rodizio.__main__ import _cliente_de
-    from shopee_rodizio.cliente_shopee import Token
-
-    config = _config(_itens(1))  # config traz access_token="tok", refresh_token="ref"
-    token_persistido = Token(
-        access_token="at-renovado",
-        refresh_token="rt-renovado",
-        expira_em=datetime(2030, 1, 1, tzinfo=UTC),
-    )
-
-    cliente = _cliente_de(config, token_persistido)
-
-    assert cliente.token == token_persistido  # não o "tok"/"ref" do config.toml
-
-
-def test_cliente_de_sem_token_persistido_usa_config():
-    from shopee_rodizio.__main__ import _cliente_de
-
-    config = _config(_itens(1))
-    cliente = _cliente_de(config, None)
-
-    assert cliente.token.access_token == "tok"
-    assert cliente.token.refresh_token == "ref"
-    assert cliente.token.expira_em is None
-
-
-def test_loop_persiste_token_renovado_apos_ciclo(tmp_path, _config_arquivo):
-    from datetime import UTC, datetime
-
-    from shopee_rodizio.__main__ import _carregar_token, executar_loop
-    from shopee_rodizio.cliente_shopee import Token
-
-    token_novo = Token(
-        access_token="at-renovado",
-        refresh_token="rt-renovado",
-        expira_em=datetime(2030, 1, 1, tzinfo=UTC),
-    )
-    fake = _ClienteFake(Token("tok", "ref", None))
-
-    def _impulsionar(cliente, config, item_id):
-        cliente.token = token_novo  # simula a renovação in-place feita por cliente.chamar
-        return boost.ResultadoBoost(sucesso=True, mensagem="ok")
-
     with (
         patch("shopee_rodizio.__main__.time.sleep"),
-        patch("shopee_rodizio.__main__._cliente_de", return_value=fake),
-        patch.object(boost, "impulsionar", side_effect=_impulsionar),
+        patch(
+            "shopee_rodizio.cliente_shopee.requests.post",
+            side_effect=[renovacao, _resposta({"error": "", "response": {}})],
+        ),
     ):
         executar_loop(str(_config_arquivo), max_iteracoes=1)
 
-    caminho_token = _config_arquivo.parent / "token.json"
-    assert _carregar_token(caminho_token) == token_novo
+    token = ArmazemToken(_config_arquivo.parent / "token.json").carregar()
+    assert token.access_token == "at-renovado"
+    assert token.refresh_token == "rt-renovado"
 
 
-def test_loop_nao_grava_token_quando_nao_ha_renovacao(tmp_path, _config_arquivo):
+def test_loop_sobe_com_token_json_em_vez_do_config_apos_restart(_config_arquivo):
     from shopee_rodizio.__main__ import executar_loop
+    from shopee_rodizio.armazem_token import ArmazemToken
+    from shopee_rodizio.cliente_shopee import Token
 
-    fake = _ClienteFake(None)  # token nunca muda: nenhuma renovação ocorre
-
+    ArmazemToken(_config_arquivo.parent / "token.json").gravar(
+        Token("at-persistido", "rt-persistido", datetime.now(UTC) + timedelta(hours=2))
+    )
     with (
         patch("shopee_rodizio.__main__.time.sleep"),
-        patch("shopee_rodizio.__main__._cliente_de", return_value=fake),
-        patch.object(
-            boost, "impulsionar", return_value=boost.ResultadoBoost(sucesso=True, mensagem="ok")
-        ),
+        patch(
+            "shopee_rodizio.cliente_shopee.requests.post",
+            return_value=_resposta({"error": "", "response": {}}),
+        ) as post_mock,
     ):
-        executar_loop(str(_config_arquivo), max_iteracoes=2)
+        executar_loop(str(_config_arquivo), max_iteracoes=1)
 
-    assert not (_config_arquivo.parent / "token.json").exists()
+    assert post_mock.call_count == 1  # token válido no disco: nenhuma renovação
+    _, kwargs = post_mock.call_args
+    assert kwargs["params"]["access_token"] == "at-persistido"  # não o "tok" do config.toml
 
 
 def test_loop_primeira_subida_sem_renovacao_nao_grava_token_com_cliente_real(
     tmp_path, _config_arquivo
 ):
-    # Regressão do achado [menor]: com o `_cliente_de` REAL (não mockado) e sem `token.json`
-    # prévio, o cliente sobe com o token do config; se nenhum ciclo renova, o loop não pode
-    # gravar um `token.json` redundante ao fim da primeira volta.
+    # Regressão do achado [menor]: com o cliente REAL e sem `token.json` prévio, se nenhum
+    # ciclo renova, o loop não pode gravar um `token.json` redundante ao fim da volta.
     from shopee_rodizio.__main__ import executar_loop
 
     with (

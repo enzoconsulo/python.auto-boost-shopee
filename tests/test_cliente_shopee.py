@@ -1,3 +1,4 @@
+import contextlib
 import hashlib
 import hmac
 from dataclasses import replace
@@ -6,8 +7,10 @@ from unittest.mock import Mock, patch
 
 import requests
 
+from shopee_rodizio.armazem_token import ArmazemToken
 from shopee_rodizio.cliente_shopee import (
     ClienteShopee,
+    Token,
     assinatura,
     base_loja,
     base_publica,
@@ -253,3 +256,130 @@ def test_token_property_reflete_estado_atual_do_cliente():
     assert token.access_token == ACCESS_TOKEN
     assert token.refresh_token == REFRESH_TOKEN
     assert replace(token, access_token="x").access_token == "x"
+
+
+# --- Token compartilhado entre processos (armazem) -----------------------------------------
+
+
+def _renovacao() -> Mock:
+    return _resposta(
+        {"access_token": "access-tok-novo", "refresh_token": "refresh-tok-novo", "expire_in": 14400}
+    )
+
+
+def _ok() -> Mock:
+    return _resposta({"error": "", "response": {"ok": True}})
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_chamar_com_armazem_usa_o_token_mais_novo_do_disco(post_mock, tmp_path):
+    # outro processo renovou e gravou: o token em memória (antigo) não pode mais ser usado
+    post_mock.return_value = _ok()
+    armazem = ArmazemToken(tmp_path / "token.json")
+    armazem.gravar(
+        Token("access-do-disco", "refresh-do-disco", datetime.now(UTC) + timedelta(hours=2))
+    )
+    cliente = _cliente(armazem=armazem)
+
+    cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+
+    assert post_mock.call_count == 1
+    _, kwargs = post_mock.call_args
+    assert kwargs["params"]["access_token"] == "access-do-disco"
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_chamar_com_armazem_grava_token_renovado_no_disco_na_hora(post_mock, tmp_path):
+    post_mock.side_effect = [_renovacao(), _ok()]
+    armazem = ArmazemToken(tmp_path / "token.json")
+    cliente = _cliente(expira_em=None, armazem=armazem)
+
+    cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+
+    gravado = armazem.carregar()
+    assert gravado.access_token == "access-tok-novo"
+    assert gravado.refresh_token == "refresh-tok-novo"
+
+
+class _ArmazemComRenovacaoConcorrente(ArmazemToken):
+    """Simula outro processo que renovou e gravou enquanto este esperava o lock."""
+
+    def __init__(self, caminho, token_do_outro: Token) -> None:
+        super().__init__(caminho)
+        self._token_do_outro = token_do_outro
+
+    @contextlib.contextmanager
+    def travado(self):
+        with super().travado():
+            self.gravar(self._token_do_outro)
+            yield
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_renovacao_feita_por_outro_processo_durante_o_lock_nao_renova_de_novo(
+    post_mock, tmp_path
+):
+    # renovar de novo gastaria um refresh_token que o outro processo já consumiu
+    post_mock.return_value = _ok()
+    fresco = Token("access-do-outro", "refresh-do-outro", datetime.now(UTC) + timedelta(hours=4))
+    armazem = _ArmazemComRenovacaoConcorrente(tmp_path / "token.json", fresco)
+    cliente = _cliente(expira_em=None, armazem=armazem)
+
+    resultado = cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+
+    assert resultado.sucesso is True
+    assert post_mock.call_count == 1  # só a chamada-alvo, nenhuma renovação
+    assert cliente.token == fresco
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_garantir_token_com_margem_maior_renova_token_ainda_valido(post_mock):
+    post_mock.return_value = _renovacao()
+    cliente = _cliente(expira_em=datetime.now(UTC) + timedelta(minutes=30))
+
+    resultado = cliente.garantir_token(margem=timedelta(minutes=60))
+
+    assert resultado.sucesso is True
+    assert resultado.token_renovado.access_token == "access-tok-novo"
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_garantir_token_valido_dentro_da_margem_nao_chama_a_api(post_mock):
+    cliente = _cliente()  # válido por 2h
+
+    resultado = cliente.garantir_token(margem=timedelta(minutes=60))
+
+    assert resultado.sucesso is True
+    assert resultado.token_renovado is None
+    post_mock.assert_not_called()
+
+
+class _ArmazemQueFalhaNaPrimeiraGravacao(ArmazemToken):
+    def __init__(self, caminho) -> None:
+        super().__init__(caminho)
+        self.falhas_restantes = 1
+
+    def gravar(self, token: Token) -> None:
+        if self.falhas_restantes:
+            self.falhas_restantes -= 1
+            raise OSError("cartão SD somente leitura")
+        super().gravar(token)
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_falha_ao_gravar_token_renovado_nao_perde_o_token_e_regrava_depois(post_mock, tmp_path):
+    # o disco ainda tem o token antigo, cujo refresh_token a renovação já consumiu: se a
+    # próxima chamada relesse o disco por cima da memória, a cadeia morreria
+    ArmazemToken(tmp_path / "token.json").gravar(Token(ACCESS_TOKEN, REFRESH_TOKEN, None))
+    armazem = _ArmazemQueFalhaNaPrimeiraGravacao(tmp_path / "token.json")
+    post_mock.side_effect = [_renovacao(), _ok()]
+    cliente = _cliente(expira_em=None, armazem=armazem)
+
+    primeira = cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+    segunda = cliente.chamar("/api/v2/product/boost_item", {"item_id": 1})
+
+    assert primeira.sucesso is False
+    assert "somente leitura" in primeira.erro
+    assert segunda.sucesso is True
+    assert post_mock.call_count == 2  # uma renovação só + a chamada-alvo
+    assert armazem.carregar().refresh_token == "refresh-tok-novo"
