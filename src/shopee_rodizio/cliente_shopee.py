@@ -7,13 +7,17 @@ Invariantes garantidas aqui:
   renovado sob lock entre processos, com o token novo gravado antes de soltar o lock — o
   refresh_token é de uso único e mais de um processo usa a mesma loja;
 - o token renovado também volta em `Resultado.token_renovado`;
-- nenhuma falha de rede/API/disco escapa como exceção: tudo vira um `Resultado` de erro.
+- nenhuma falha de rede/API/disco escapa como exceção: tudo vira um `Resultado` de erro;
+- nenhuma mensagem de erro carrega credencial: a URL assinada (com `access_token` e `sign`
+  na query) que o `requests` põe na mensagem da exceção é removida antes de virar
+  `Resultado.erro` — esse texto vai para o log e para o `estado.json`.
 """
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
@@ -61,6 +65,18 @@ def assinatura(partner_key: str, base: str) -> str:
     return hmac.new(
         partner_key.encode("utf-8"), base.encode("utf-8"), hashlib.sha256
     ).hexdigest()
+
+
+_RE_QUERY_URL = re.compile(r"(https?://[^\s?#'\"]+)\?[^\s'\"]*")
+_RE_PARAM_SECRETO = re.compile(
+    r"((?:access_token|refresh_token|sign|partner_key)[\"']?\s*[=:]\s*[\"']?)[^&\s\"',}]+"
+)
+
+
+def mensagem_segura(exc: BaseException) -> str:
+    """Texto da exceção sem query string de URL nem valores de parâmetros secretos."""
+    texto = _RE_QUERY_URL.sub(r"\1?<omitido>", str(exc))
+    return _RE_PARAM_SECRETO.sub(r"\1<omitido>", texto)
 
 
 def _erro_api(dados: dict) -> str | None:
@@ -124,7 +140,9 @@ class ClienteShopee:
         try:
             dados = self._requisitar(path, params, nivel_loja=True, metodo=metodo)
         except requests.exceptions.RequestException as exc:
-            return Resultado(sucesso=False, erro=str(exc), token_renovado=token_renovado)
+            return Resultado(
+                sucesso=False, erro=mensagem_segura(exc), token_renovado=token_renovado
+            )
 
         erro = _erro_api(dados)
         if erro:
@@ -159,7 +177,7 @@ class ClienteShopee:
                     self._gravar_no_armazem()
                 return resultado
         except (OSError, ValueError, KeyError) as exc:  # rede (RequestException é OSError), disco
-            return Resultado(sucesso=False, erro=str(exc))
+            return Resultado(sucesso=False, erro=mensagem_segura(exc))
 
     def _recarregar_do_armazem(self) -> None:
         if self._token_nao_gravado:

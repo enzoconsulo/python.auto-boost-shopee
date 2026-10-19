@@ -14,6 +14,7 @@ from shopee_rodizio.cliente_shopee import (
     assinatura,
     base_loja,
     base_publica,
+    mensagem_segura,
 )
 
 PARTNER_ID = 123456
@@ -383,3 +384,45 @@ def test_falha_ao_gravar_token_renovado_nao_perde_o_token_e_regrava_depois(post_
     assert segunda.sucesso is True
     assert post_mock.call_count == 2  # uma renovação só + a chamada-alvo
     assert armazem.carregar().refresh_token == "refresh-tok-novo"
+
+
+# --- Nenhuma credencial em mensagem de erro (vai para log e estado.json) -----------------
+
+
+def _erro_http_com_url_assinada() -> requests.HTTPError:
+    return requests.HTTPError(
+        "403 Client Error: Forbidden for url: https://partner.shopeemobile.com"
+        "/api/v2/product/boost_item?partner_id=1&timestamp=2&sign=abc123"
+        f"&access_token={ACCESS_TOKEN}&shop_id=99"
+    )
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_chamar_erro_http_nao_vaza_access_token_nem_sign_na_mensagem(post_mock):
+    resposta = Mock()
+    resposta.raise_for_status.side_effect = _erro_http_com_url_assinada()
+    post_mock.return_value = resposta
+
+    resultado = _cliente().chamar("/api/v2/product/boost_item", {"item_id_list": [1]})
+
+    assert resultado.sucesso is False
+    assert ACCESS_TOKEN not in resultado.erro
+    assert "abc123" not in resultado.erro
+    assert "403 Client Error" in resultado.erro
+    assert "/api/v2/product/boost_item" in resultado.erro
+
+
+@patch("shopee_rodizio.cliente_shopee.requests.post")
+def test_falha_na_renovacao_nao_vaza_refresh_token_na_mensagem(post_mock):
+    post_mock.side_effect = requests.ConnectionError(
+        "falhou: {'refresh_token': 'rt-secreto', 'partner_id': 1}"
+    )
+
+    resultado = _cliente(expira_em=None).chamar("/api/v2/product/boost_item", {})
+
+    assert resultado.sucesso is False
+    assert "rt-secreto" not in resultado.erro
+
+
+def test_mensagem_segura_preserva_mensagem_sem_segredo():
+    assert mensagem_segura(requests.Timeout("Read timed out.")) == "Read timed out."
