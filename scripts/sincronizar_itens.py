@@ -1,11 +1,10 @@
 """Puxa a lista real de anúncios ativos da loja e gera o bloco `[[itens]]` do
 `config.toml` sozinho — sem digitar item por item.
 
-Endpoints (`get_item_list` para os IDs ativos, `get_item_base_info` para os nomes — ambos
-GET) confirmados contra conta real via `analista_dados_shopee/workers/sync_catalogo.py`
-(implementação irmã do mesmo usuário, já validada em produção). O nome de cada item entra
-como comentário ao lado do `id` no `config.toml`, só para leitura humana — não afeta o
-funcionamento do rodízio.
+A busca do catálogo (`get_item_list` para os IDs ativos, `get_item_base_info` para os
+nomes) vive em `shopee_rodizio.catalogo`, compartilhada com o painel web. O nome de cada
+item entra como comentário ao lado do `id` no `config.toml`, só para leitura humana — não
+afeta o funcionamento do rodízio.
 
 Uso:
     uv run python scripts/sincronizar_itens.py config.toml [--peso-padrao N]
@@ -22,13 +21,9 @@ import argparse
 import sys
 
 from shopee_rodizio.armazem_token import cliente_da_config
-from shopee_rodizio.cliente_shopee import ClienteShopee
+from shopee_rodizio.catalogo import ErroCatalogo, buscar_detalhes, buscar_item_ids_ativos
 from shopee_rodizio.config import ConfigError, atualizar_itens, carregar_config
 
-PATH_LISTA_ITENS = "/api/v2/product/get_item_list"
-PATH_INFO_ITENS = "/api/v2/product/get_item_base_info"
-PAGE_SIZE = 50
-LOTE_INFO = 50
 PESO_PADRAO = 1
 
 
@@ -50,47 +45,6 @@ def _analisar_args(argv: list[str]) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
-def _buscar_item_ids_ativos(cliente: ClienteShopee) -> list[int]:
-    """Pagina `get_item_list` até o fim. Lança RuntimeError se alguma página falhar —
-    uma listagem parcial não pode virar `[[itens]]` (removeria itens ativos por engano)."""
-    item_ids: list[int] = []
-    offset = 0
-    while True:
-        resultado = cliente.chamar(
-            PATH_LISTA_ITENS,
-            {"offset": offset, "page_size": PAGE_SIZE, "item_status": "NORMAL"},
-            metodo="GET",
-        )
-        if not resultado.sucesso:
-            raise RuntimeError(resultado.erro or "erro desconhecido ao listar itens")
-
-        pagina = resultado.dados.get("response", {})
-        item_ids.extend(item["item_id"] for item in pagina.get("item", []))
-        if not pagina.get("has_next_page"):
-            return item_ids
-        offset += PAGE_SIZE
-
-
-def _buscar_nomes(cliente: ClienteShopee, item_ids: list[int]) -> dict[int, str]:
-    """Nome de cada item, só para comentário no config.toml — cosmético, então uma
-    falha aqui não deve travar a sincronização (nomes ausentes ficam sem comentário)."""
-    nomes: dict[int, str] = {}
-    for inicio in range(0, len(item_ids), LOTE_INFO):
-        lote = item_ids[inicio : inicio + LOTE_INFO]
-        resultado = cliente.chamar(
-            PATH_INFO_ITENS,
-            {"item_id_list": ",".join(str(i) for i in lote)},
-            metodo="GET",
-        )
-        if not resultado.sucesso:
-            continue
-        for item in resultado.dados.get("response", {}).get("item_list", []):
-            nome = str(item.get("item_name", "")).strip().replace("\n", " ")
-            if nome:
-                nomes[item["item_id"]] = nome
-    return nomes
-
-
 def main(argv: list[str] | None = None) -> int:
     args = _analisar_args(sys.argv[1:] if argv is None else argv)
 
@@ -105,8 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     cliente = cliente_da_config(config)
     print("buscando anúncios ativos na Shopee...")
     try:
-        ids_ativos = _buscar_item_ids_ativos(cliente)
-    except RuntimeError as exc:
+        ids_ativos = buscar_item_ids_ativos(cliente)
+    except ErroCatalogo as exc:
         print(f"falha ao listar itens: {exc}", file=sys.stderr)
         return 1
 
@@ -115,7 +69,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     print("buscando nomes dos itens...")
-    nomes = _buscar_nomes(cliente, ids_ativos)
+    detalhes = buscar_detalhes(cliente, ids_ativos)
+    nomes = {item_id: item.nome for item_id, item in detalhes.items() if item.nome}
 
     pesos_atuais = {item.id: item.peso for item in config.itens}
     itens_novos = [
