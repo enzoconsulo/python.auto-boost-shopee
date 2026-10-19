@@ -50,6 +50,42 @@ def test_relogio_atrasado_sem_rtc_espera_o_intervalo_cheio():
     assert segundos_ate_proximo_ciclo(estado, 4, AGORA) == 4 * 3600
 
 
+def _r(atras: timedelta, sucesso: bool) -> RegistroBoost:
+    return RegistroBoost(1, (AGORA - atras).isoformat(), sucesso, "x")
+
+
+def test_falhas_depois_do_ultimo_sucesso_nao_empurram_o_proximo_ciclo():
+    # caso de 19/10: boosts ok às 16:36, restarts às 18:56 falharam por slot cheio; o
+    # próximo ciclo tem de ser 20:36 (quando os slots liberam), não 22:56
+    estado = Estado(
+        caminho=None,
+        historico=[
+            _r(timedelta(hours=2, minutes=20), True),
+            _r(timedelta(minutes=0), False),
+        ],
+    )
+
+    assert segundos_ate_proximo_ciclo(estado, 4, AGORA) == pytest.approx(100 * 60)
+
+
+def test_sucesso_ha_mais_de_um_intervalo_e_falha_recente_roda_na_hora():
+    estado = Estado(
+        caminho=None,
+        historico=[_r(timedelta(hours=6), True), _r(timedelta(hours=2), False)],
+    )
+
+    assert segundos_ate_proximo_ciclo(estado, 4, AGORA) == 0
+
+
+def test_relogio_atrasado_vale_mesmo_quando_o_registro_futuro_e_uma_falha():
+    estado = Estado(
+        caminho=None,
+        historico=[_r(timedelta(hours=6), True), _r(-timedelta(days=2), False)],
+    )
+
+    assert segundos_ate_proximo_ciclo(estado, 4, AGORA) == 4 * 3600
+
+
 def test_timestamp_ilegivel_e_ignorado():
     estado = Estado(
         caminho=None,

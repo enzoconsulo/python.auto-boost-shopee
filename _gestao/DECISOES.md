@@ -267,3 +267,16 @@ formatos continua no código.
   histórico inteiro para o navegador: a resposta fica pequena mesmo com o `estado.json`
   crescendo. Gráfico em CSS puro, sem biblioteca.
 **Quem:** usuário (pediu as abas) + executor (T-021)
+
+## 2026-10-19 — Espera na subida conta a partir do último boost COM SUCESSO (corrige a entrada de hoje)
+**Decisão:** revisa a entrada "Na subida, o serviço espera o que falta do intervalo desde
+o último ciclo". A âncora passa a ser o último registro com sucesso
+(`estado.ancora_do_intervalo`), com fallback para o último registro se nunca houve
+sucesso. A proteção de relógio atrasado continua olhando qualquer registro.
+**Motivo:** a aba "Relatório", com dados reais, mostrou zero itens no ar logo depois do
+deploy. Os boosts das 16:36 UTC expiraram às 20:36, mas as tentativas que falharam por
+slot cheio às 18:57 viraram a âncora e empurraram o próximo ciclo para 22:57, deixando
+~2h20 sem boost. Tentativa que falha não ocupa slot e não deve contar. Fallback para o
+último registro quando nunca houve sucesso: sem ele, uma loja com falha permanente
+(credencial, IP) rodaria um ciclo a cada restart.
+**Quem:** executor (T-014, ciclo 2), achado pelo relatório da T-021

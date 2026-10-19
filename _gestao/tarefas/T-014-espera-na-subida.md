@@ -39,3 +39,11 @@ também ocupou a janela. Efeito colateral bom: com isso, o `Requires=` do túnel
 reiniciar o rodízio quando o túnel reinicia sem custo nenhum.
 
 **Reproduzir:** `.venv\Scripts\python.exe -m pytest tests/test_loop_subida_e_releitura.py -q`
+
+### Ciclo 2
+A âncora passou a ser o último boost com sucesso (`estado.ancora_do_intervalo`), não o
+último registro. Achado em produção pela aba "Relatório" (T-021): as falhas por slot cheio
+das 18:57 adiaram o ciclo para 22:57, deixando a loja sem boost das 20:36 às 22:57. Ver
+DECISOES 2026-10-19 ("Espera na subida conta a partir do último boost COM SUCESSO").
+Testes novos: falhas depois do último sucesso não empurram o ciclo; sucesso antigo + falha
+recente roda na hora; relógio atrasado vale também quando o registro futuro é uma falha.

@@ -55,7 +55,7 @@ from .config import (
     nomes_nos_comentarios,
     versao_config,
 )
-from .estado import carregar_estado, segundos_ate_proximo_ciclo, ultimo_ciclo_em
+from .estado import ancora_do_intervalo, carregar_estado, segundos_ate_proximo_ciclo
 
 _logger = logging.getLogger("shopee_rodizio.painel")
 
@@ -166,7 +166,7 @@ def montar_estado(
         if registro.sucesso:
             info["ultimo_sucesso_em"] = registro.timestamp
 
-    ultimo = ultimo_ciclo_em(estado)
+    ultimo = ancora_do_intervalo(estado)
     espera = segundos_ate_proximo_ciclo(estado, config.ciclo.intervalo_horas, agora)
     return {
         "versao": versao_config(texto_config),

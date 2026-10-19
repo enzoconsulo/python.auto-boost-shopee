@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: e20dfee · 2026-10-19 (gerado por script equivalente; _sistema/ ausente nesta máquina) -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: ad59a57 · 2026-10-19 (gerado por script equivalente; _sistema/ ausente nesta máquina) -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -132,7 +132,8 @@ tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, t
 - `carregar_estado(caminho: str | Path)`
 - `registrar_boost(estado: Estado, item_id: int, sucesso: bool, mensagem: str)`
 - `historico_recente(estado: Estado, item_id: int)`
-- `ultimo_ciclo_em(estado: Estado)`
+- `ultimo_ciclo_em(estado: Estado, *, so_sucesso: bool=False)`
+- `ancora_do_intervalo(estado: Estado)`
 - `segundos_ate_proximo_ciclo(estado: Estado, intervalo_horas: float, agora: datetime | None=None)`
 - `_gravar(estado: Estado)`
 
@@ -311,6 +312,10 @@ tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, t
 - `test_restart_2h20_depois_do_ultimo_ciclo_espera_1h40()`
 - `test_ultimo_ciclo_ha_mais_de_um_intervalo_roda_na_hora()`
 - `test_relogio_atrasado_sem_rtc_espera_o_intervalo_cheio()`
+- `_r(atras: timedelta, sucesso: bool)`
+- `test_falhas_depois_do_ultimo_sucesso_nao_empurram_o_proximo_ciclo()`
+- `test_sucesso_ha_mais_de_um_intervalo_e_falha_recente_roda_na_hora()`
+- `test_relogio_atrasado_vale_mesmo_quando_o_registro_futuro_e_uma_falha()`
 - `test_timestamp_ilegivel_e_ignorado()`
 - `_toml(tmp_path, pesos: dict[int, int])`
 - `config_arquivo(tmp_path)`

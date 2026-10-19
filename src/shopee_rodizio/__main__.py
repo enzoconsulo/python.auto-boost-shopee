@@ -5,7 +5,7 @@ diretório atual). A cada volta do loop, executa um ciclo (`ciclo.py`) e dorme
 `ciclo.intervalo_horas` antes da próxima.
 
 Subida sem queimar ciclo: antes do primeiro ciclo, o loop lê no `estado.json` quando foi o
-último e dorme o que falta do intervalo — um restart ou deploy no meio do intervalo não
+último boost com sucesso (o que ocupa slot) e dorme o que falta do intervalo — um restart ou deploy no meio do intervalo não
 dispara um ciclo extra contra slots de boost ainda ocupados (auditoria de 2026-10-19).
 
 Config relida a cada ciclo: o `config.toml` é relido no início de cada volta, então
@@ -33,7 +33,7 @@ from .armazem_token import cliente_da_config
 from .ciclo import executar_ciclo
 from .cliente_shopee import ClienteShopee
 from .config import Config, ConfigError, carregar_config
-from .estado import Estado, carregar_estado, segundos_ate_proximo_ciclo, ultimo_ciclo_em
+from .estado import Estado, ancora_do_intervalo, carregar_estado, segundos_ate_proximo_ciclo
 from .logging_config import configurar as configurar_logging
 
 _logger = logging.getLogger("shopee_rodizio")
@@ -59,11 +59,11 @@ def _aguardar_intervalo_desde_ultimo_ciclo(config: Config, estado: Estado) -> No
     espera = segundos_ate_proximo_ciclo(estado, config.ciclo.intervalo_horas)
     if espera <= 0:
         return
-    ultimo = ultimo_ciclo_em(estado)
+    ultimo = ancora_do_intervalo(estado)
     proximo = datetime.now(UTC) + timedelta(seconds=espera)
     _logger.info(
-        "último ciclo em %s; aguardando %.0f min até o próximo (%s) para não repetir "
-        "boost com slots ainda ocupados",
+        "último boost com sucesso em %s; aguardando %.0f min até o próximo ciclo (%s) "
+        "para não repetir boost com slots ainda ocupados",
         ultimo.isoformat(timespec="seconds"),
         espera / 60,
         proximo.isoformat(timespec="seconds"),
