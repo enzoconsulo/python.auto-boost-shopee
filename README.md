@@ -72,25 +72,33 @@ usuário sem privilégio de root se o seu SBC usa um diferente.
    `partner_id`/`partner_key` preenchidos, rode `scripts/gerar_token.py` (abaixo) para
    obter e gravar os três automaticamente.
 
-4. **Instalar e ativar a unidade systemd:**
+4. **Instalar e ativar a unidade systemd** (instale antes o túnel, seção "IP de saída
+   fixo" — a unidade declara `Requires=shopee-proxy-tunnel.service`):
 
    ```
-   sudo cp systemd/shopee-rodizio.service /etc/systemd/system/
-   sudo systemctl daemon-reload
-   sudo systemctl enable --now shopee-rodizio
+   bash scripts/atalhos/instalar_servico.sh
    ```
 
-5. **Acompanhar o log:**
+   A unidade sobe depois do túnel (`After=`/`Requires=`) e, no `ExecStartPre`, espera até
+   30 s a porta SOCKS `127.0.0.1:1080` aceitar conexão — o túnel é `Type=simple`, então
+   "ativo" para o systemd não significa "porta escutando". `SuccessExitStatus=143` faz o
+   SIGTERM de todo stop/restart deixar de aparecer como falha no journal.
+
+   **Drop-in antigo:** quem aplicou a dependência do túnel à mão em
+   `/etc/systemd/system/shopee-rodizio.service.d/tunel.conf` pode removê-lo — agora ela
+   está na unidade do repositório. O `instalar_servico.sh` remove esse drop-in sozinho se
+   ele contiver só as linhas `After=`/`Requires=` do túnel; com qualquer outra coisa
+   dentro, ele é mantido e você decide.
+
+   Reiniciar o serviço não queima ciclo: na subida ele lê no `estado.json` quando foi o
+   último ciclo e espera o que falta do `intervalo_horas`.
+
+5. **Acompanhar o log:** o app escreve no arquivo de `[caminhos].log` do `config.toml`
+   (por padrão `shopee-rodizio.log`, relativo à raiz do projeto), não no stdout:
 
    ```
-   journalctl -u shopee-rodizio -f
-   ```
-
-   ou, direto no arquivo configurado em `[caminhos].log` do `config.toml` (por padrão
-   `shopee-rodizio.log`, relativo ao `WorkingDirectory` do serviço):
-
-   ```
-   tail -f /home/biqu/shopee-rodizio/shopee-rodizio.log
+   bash scripts/atalhos/ver_logs.sh        # log do app (cada boost, espera, erro)
+   bash scripts/atalhos/ver_logs.sh -j     # journal do systemd (start/stop, crash, painel)
    ```
 
 ## IP de saída fixo (Oracle Cloud Free Tier)
@@ -246,10 +254,10 @@ projeto no BTT Pi (`bash scripts/atalhos/<nome>.sh`, funciona mesmo sem o bit de
 | `status_tunel.sh` | Mostra se o túnel de IP fixo está de pé. |
 | `iniciar_servico.sh` | `systemctl start` (serviço já instalado, só parado). |
 | `parar_servico.sh` | `systemctl stop` (não desabilita o start automático no boot). |
-| `reiniciar_servico.sh` | `systemctl restart` — necessário depois de editar `config.toml` ou atualizar o código. |
-| `status_servico.sh` | Mostra se está rodando, há quanto tempo, e as últimas linhas de log. |
-| `ver_logs.sh [N]` | Segue o log ao vivo (`journalctl -f`); `Ctrl+C` só fecha a visualização, o serviço continua rodando. |
-| `editar_pesos.sh` | Abre `config.toml` no editor e, ao sair, já oferece reiniciar o serviço para aplicar. |
+| `reiniciar_servico.sh` | `systemctl restart` — necessário só depois de atualizar o código; `config.toml` é relido a cada ciclo. Não queima ciclo. |
+| `status_servico.sh` | Mostra se está rodando, há quanto tempo, e as últimas linhas do log do app. |
+| `ver_logs.sh [-j] [N]` | Segue ao vivo o log do app (arquivo de `[caminhos].log`); com `-j`, o journal do systemd do serviço, do painel e do túnel. `Ctrl+C` só fecha a visualização. |
+| `editar_pesos.sh` | Abre `config.toml` no editor e valida ao sair; vale no próximo ciclo, sem reiniciar. |
 | `sincronizar_itens.sh` | `scripts/sincronizar_itens.py` já apontando pro `config.toml` do projeto. |
 | `gerar_token.sh` | `scripts/gerar_token.py` já apontando pro `config.toml` do projeto. |
 | `smoke_test.sh` | `scripts/smoke_test.py` já apontando pro `config.toml` do projeto (chamada real de boost). |
