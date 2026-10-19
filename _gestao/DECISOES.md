@@ -239,3 +239,13 @@ ela virar `Resultado.erro`.
 claro. O `HTTPError` do `requests` embute a URL assinada inteira, e o texto ia para o log
 e o `estado.json` (e iria para o painel).
 **Quem:** executor (T-013)
+
+## 2026-10-19 — get_model_list e extração de preço/estoque confirmados contra a conta real
+**Decisão:** mantém `[painel].buscar_variacoes = true` como padrão.
+**Motivo:** no deploy de 2026-10-19, `catalogo.baixar_catalogo` rodou no Pi contra a loja
+real: 29 anúncios ativos, todos com nome, imagem, preço (faixa mín–máx para os 21 com
+variação, via `get_model_list`), estoque e status `NORMAL`. A atualização completa levou
+36 s, com pausa de 0,2 s entre chamadas. Resolve a incerteza da entrada "Catálogo:
+get_model_list opcional e formato de estoque incerto" para esta conta; o fallback de
+formatos continua no código.
+**Quem:** executor (deploy T-020)

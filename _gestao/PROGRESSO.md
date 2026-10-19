@@ -18,10 +18,17 @@ Auditoria de produção corrigida e painel web entregue (T-012 a T-020):
 - catálogo extraído para `catalogo.py`, com cache;
 - painel web só-LAN na porta 8790 (`shopee-painel.service`, prioridade idle).
 
-Implantado no BTT Pi via `git pull`, com o drop-in `tunel.conf` removido. Próximo passo:
-o usuário define a senha do painel (`scripts/atalhos/definir_senha_painel.sh`), se ainda
-não o fez no deploy, e valida no navegador a extração de preço/estoque (DECISOES
-2026-10-19).
+Implantado no BTT Pi via `git pull` + `instalar_servico.sh` + `instalar_painel.sh`, com o
+drop-in `tunel.conf` removido. Verificado em produção:
+- o restart esperou 188 min em vez de disparar ciclo;
+- o journal mostra "Deactivated successfully" no stop;
+- painel a 31 MB RSS em SCHED_IDLE, testado de ponta a ponta pela LAN (401/403/409 e
+  nenhuma credencial nas respostas);
+- catálogo real com preço/estoque OK;
+- salvamento sem mudança não regravou o config.
+
+Próximo passo: o usuário troca a senha provisória do painel
+(`scripts/atalhos/definir_senha_painel.sh`).
 
 ## 2026-08-25
 
