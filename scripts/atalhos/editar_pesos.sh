@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
-# Abre o config.toml no editor e, ao sair, oferece reiniciar o serviço na hora — evita
-# esquecer que ele só relê o config.toml na subida (ver __main__.py).
+# Abre o config.toml no editor. Não precisa reiniciar nada: o serviço relê o config.toml
+# no início de cada ciclo (ver __main__.py), então a mudança vale a partir do próximo.
+# Para ajustar pesos com a lista de produtos na tela, prefira o painel web (README,
+# "Painel web dos pesos").
 # Uso: scripts/atalhos/editar_pesos.sh [caminho/do/config.toml]
 set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -8,10 +10,10 @@ CONFIG="${1:-$REPO_DIR/config.toml}"
 
 "${EDITOR:-nano}" "$CONFIG"
 
-read -r -p "Reiniciar o serviço agora para aplicar as mudanças? [S/n] " resposta
-if [[ -z "$resposta" || "$resposta" =~ ^[Ss]$ ]]; then
-    sudo systemctl restart shopee-rodizio
-    echo "serviço reiniciado com o config.toml atualizado."
+if PYTHONPATH="$REPO_DIR/src" "$REPO_DIR/.venv/bin/python" -c "import sys; from shopee_rodizio.config import carregar_config; carregar_config(sys.argv[1])" "$CONFIG"; then
+    echo "config.toml válido — vale a partir do próximo ciclo, sem reiniciar."
 else
-    echo "lembre de rodar scripts/atalhos/reiniciar_servico.sh depois para aplicar."
+    echo "ATENÇÃO: config.toml inválido. O serviço segue com a última versão válida até" >&2
+    echo "         você corrigir o arquivo (rode este atalho de novo)." >&2
+    exit 1
 fi

@@ -52,6 +52,42 @@ def historico_recente(estado: Estado, item_id: int) -> list[RegistroBoost]:
     return [registro for registro in estado.historico if registro.item_id == item_id]
 
 
+def ultimo_ciclo_em(estado: Estado) -> datetime | None:
+    """Momento do registro mais recente do histórico (com sucesso ou não); `None` se vazio.
+
+    Registro com timestamp ilegível é ignorado — um `estado.json` editado à mão não pode
+    impedir o serviço de subir.
+    """
+    momentos = []
+    for registro in estado.historico:
+        try:
+            momento = datetime.fromisoformat(registro.timestamp)
+        except (TypeError, ValueError):
+            continue
+        momentos.append(momento if momento.tzinfo else momento.replace(tzinfo=UTC))
+    return max(momentos, default=None)
+
+
+def segundos_ate_proximo_ciclo(
+    estado: Estado, intervalo_horas: float, agora: datetime | None = None
+) -> float:
+    """Quanto falta, a partir de `agora`, para completar `intervalo_horas` desde o último
+    ciclo registrado. Sem histórico, 0 (roda já).
+
+    O CB1 não tem RTC: no boot, antes do NTP, o relógio volta para o horário salvo pelo
+    fake-hwclock (no passado). Se o último ciclo parecer estar no futuro, espera o
+    intervalo cheio — na dúvida, errar para o lado de não queimar slots de boost.
+    """
+    intervalo = intervalo_horas * 3600
+    ultimo = ultimo_ciclo_em(estado)
+    if ultimo is None:
+        return 0.0
+    decorrido = ((agora or datetime.now(UTC)) - ultimo).total_seconds()
+    if decorrido < 0:
+        return float(intervalo)
+    return max(0.0, intervalo - decorrido)
+
+
 def _gravar(estado: Estado) -> None:
     dados = {"historico": [asdict(registro) for registro in estado.historico]}
     gravar_atomico(estado.caminho, json.dumps(dados, indent=2, ensure_ascii=False))
