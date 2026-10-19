@@ -19,13 +19,11 @@ ciclo) — a lista de removidos é impressa, nada é apagado silenciosamente.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
-from pathlib import Path
 
 from shopee_rodizio.armazem_token import cliente_da_config
 from shopee_rodizio.cliente_shopee import ClienteShopee
-from shopee_rodizio.config import ConfigError, carregar_config
+from shopee_rodizio.config import ConfigError, atualizar_itens, carregar_config
 
 PATH_LISTA_ITENS = "/api/v2/product/get_item_list"
 PATH_INFO_ITENS = "/api/v2/product/get_item_base_info"
@@ -93,21 +91,6 @@ def _buscar_nomes(cliente: ClienteShopee, item_ids: list[int]) -> dict[int, str]
     return nomes
 
 
-def _regenerar_bloco_itens(
-    texto: str, itens: list[tuple[int, int]], nomes: dict[int, str] | None = None
-) -> str:
-    nomes = nomes or {}
-    blocos = "".join(
-        f"[[itens]]\nid = {item_id}"
-        + (f"  # {nomes[item_id]}" if nomes.get(item_id) else "")
-        + f"\npeso = {peso}\n\n"
-        for item_id, peso in itens
-    )
-    marcador = re.search(r"(?m)^\[\[itens\]\]", texto)
-    inicio = marcador.start() if marcador else len(texto.rstrip("\n")) + 2
-    return texto[:inicio].rstrip("\n") + "\n\n" + blocos.rstrip("\n") + "\n"
-
-
 def main(argv: list[str] | None = None) -> int:
     args = _analisar_args(sys.argv[1:] if argv is None else argv)
 
@@ -140,10 +123,13 @@ def main(argv: list[str] | None = None) -> int:
     ]
     removidos = [item_id for item_id in pesos_atuais if item_id not in ids_ativos]
 
-    texto_atualizado = _regenerar_bloco_itens(
-        Path(args.config).read_text(encoding="utf-8"), itens_novos, nomes
-    )
-    Path(args.config).write_text(texto_atualizado, encoding="utf-8")
+    # escrita atômica, sob o lock do config.toml (o painel web também grava nele) e só do
+    # bloco [[itens]] — o resto do arquivo, inclusive seções depois dos itens, fica intacto
+    try:
+        atualizar_itens(args.config, itens_novos, nomes)
+    except (ConfigError, OSError) as exc:
+        print(f"config.toml NÃO foi alterado: {exc}", file=sys.stderr)
+        return 1
 
     print(f"{len(itens_novos)} item(ns) gravado(s) em {args.config}.")
     if removidos:

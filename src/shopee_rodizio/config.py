@@ -1,14 +1,22 @@
-"""Leitura e validação da configuração TOML do usuário."""
+"""Leitura, validação e regravação (só do bloco `[[itens]]`) da configuração TOML."""
 
 from __future__ import annotations
 
+import hashlib
+import re
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from .arquivo import gravar_atomico, travado
+
 
 class ConfigError(Exception):
     """Configuração inválida; a mensagem identifica o campo problemático."""
+
+
+class ConflitoConfig(Exception):
+    """O `config.toml` mudou desde que foi lido (outro escritor gravou no meio)."""
 
 
 @dataclass(frozen=True)
@@ -41,6 +49,22 @@ class RedeConfig:
     proxy_https: str | None = None
 
 
+# faixas privadas IPv4 (RFC 1918) + loopback — o painel só atende clientes da rede local
+REDES_LAN_PADRAO = ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.0/8")
+
+
+@dataclass(frozen=True)
+class PainelConfig:
+    """Seção opcional `[painel]` — só o painel web (`painel.py`) a lê; o serviço ignora."""
+
+    endereco: str = "0.0.0.0"
+    porta: int = 8790
+    senha_hash: str | None = None
+    redes_permitidas: tuple[str, ...] = REDES_LAN_PADRAO
+    cache_horas: int = 24
+    buscar_variacoes: bool = True
+
+
 @dataclass(frozen=True)
 class Item:
     id: int
@@ -54,6 +78,7 @@ class Config:
     caminhos: CaminhosConfig
     itens: list[Item]
     rede: RedeConfig = field(default_factory=RedeConfig)
+    painel: PainelConfig = field(default_factory=PainelConfig)
 
 
 _CAMPOS_SHOPEE = ("partner_id", "partner_key", "shop_id", "access_token", "refresh_token")
@@ -90,6 +115,25 @@ def _validar(dados: dict) -> Config:
         caminhos=CaminhosConfig(**caminhos),
         itens=itens,
         rede=rede,
+        painel=_validar_painel(dados.get("painel", {})),
+    )
+
+
+def _validar_painel(secao: dict) -> PainelConfig:
+    padrao = PainelConfig()
+    porta = secao.get("porta", padrao.porta)
+    if not isinstance(porta, int) or not 1 <= porta <= 65535:
+        raise ConfigError("painel.porta deve ser um inteiro entre 1 e 65535")
+    cache_horas = secao.get("cache_horas", padrao.cache_horas)
+    if not isinstance(cache_horas, int) or cache_horas <= 0:
+        raise ConfigError("painel.cache_horas deve ser > 0")
+    return PainelConfig(
+        endereco=secao.get("endereco", padrao.endereco),
+        porta=porta,
+        senha_hash=secao.get("senha_hash") or None,
+        redes_permitidas=tuple(secao.get("redes_permitidas", padrao.redes_permitidas)),
+        cache_horas=cache_horas,
+        buscar_variacoes=bool(secao.get("buscar_variacoes", padrao.buscar_variacoes)),
     )
 
 
@@ -111,3 +155,115 @@ def _validar_item(item: dict, indice: int) -> Item:
     if item["peso"] <= 0:
         raise ConfigError(f"itens[{indice}].peso deve ser > 0 (item id={item['id']})")
     return Item(id=item["id"], peso=item["peso"])
+
+
+# --- Regravação do bloco [[itens]] ---------------------------------------------------------
+#
+# Escritores do config.toml: `scripts/sincronizar_itens.py` e o painel web. Ambos só trocam
+# os blocos `[[itens]]`; todo o resto do arquivo (credenciais, comentários, seções depois dos
+# itens — em produção o `[rede]` fica DEPOIS deles) tem de sair igual. O serviço só lê o
+# arquivo, e `gravar_atomico` garante que ele nunca veja uma versão pela metade.
+
+_RE_CABECALHO = re.compile(r"^\s*\[")
+_RE_CABECALHO_ITENS = re.compile(r"^\s*\[\[\s*itens\s*\]\]")
+_RE_ID_COM_NOME = re.compile(r"(?m)^\s*id\s*=\s*(\d+)[ \t]*#[ \t]*(.+?)[ \t]*$")
+
+
+def versao_config(texto: str) -> str:
+    """Identificador da versão do texto do config (para detectar escrita concorrente)."""
+    return hashlib.sha256(texto.encode("utf-8")).hexdigest()
+
+
+def nomes_nos_comentarios(texto: str) -> dict[int, str]:
+    """Nomes que `regenerar_bloco_itens` deixou como comentário ao lado de cada `id`."""
+    return {int(item_id): nome for item_id, nome in _RE_ID_COM_NOME.findall(texto)}
+
+
+def regenerar_bloco_itens(
+    texto: str, itens: list[tuple[int, int]], nomes: dict[int, str] | None = None
+) -> str:
+    """Troca todos os blocos `[[itens]]` de `texto` por `itens` (id, peso), no lugar do
+    primeiro; o resto do arquivo é preservado. Nome vira comentário ao lado do `id`."""
+    nomes = nomes or {}
+    blocos = "".join(
+        f"[[itens]]\nid = {item_id}"
+        + (f"  # {_nome_de_comentario(nomes[item_id])}" if nomes.get(item_id) else "")
+        + f"\npeso = {peso}\n\n"
+        for item_id, peso in itens
+    ).rstrip("\n") + "\n"
+
+    linhas = texto.splitlines(keepends=True)
+    inicio_primeiro: int | None = None
+    mantidas: list[str] = []
+    i = 0
+    while i < len(linhas):
+        if not _RE_CABECALHO_ITENS.match(linhas[i]):
+            mantidas.append(linhas[i])
+            i += 1
+            continue
+        if inicio_primeiro is None:
+            inicio_primeiro = len(mantidas)
+        fim = i + 1
+        while fim < len(linhas) and not _RE_CABECALHO.match(linhas[fim]):
+            fim += 1
+        if fim < len(linhas) and not _RE_CABECALHO_ITENS.match(linhas[fim]):
+            # comentários/linhas em branco logo antes da próxima seção pertencem a ela
+            while fim > i + 1 and _linha_solta(linhas[fim - 1]):
+                fim -= 1
+        i = fim
+
+    if inicio_primeiro is None:
+        return texto.rstrip("\n") + "\n\n" + blocos
+    antes = "".join(mantidas[:inicio_primeiro]).rstrip("\n")
+    depois = "".join(mantidas[inicio_primeiro:]).strip("\n")
+    resultado = (antes + "\n\n" if antes else "") + blocos
+    if depois:
+        resultado += "\n" + depois + "\n"
+    return resultado
+
+
+def _linha_solta(linha: str) -> bool:
+    conteudo = linha.strip()
+    return not conteudo or conteudo.startswith("#")
+
+
+def _nome_de_comentario(nome: str) -> str:
+    return " ".join(str(nome).split())
+
+
+def gravar_config(caminho: str | Path, texto_novo: str) -> None:
+    """Grava `texto_novo` atomicamente, só se ele for uma config válida e mudar apenas os
+    `[[itens]]` em relação ao arquivo atual — nunca deixa um config.toml quebrado no disco."""
+    caminho = Path(caminho)
+    try:
+        dados_novos = tomllib.loads(texto_novo)
+    except tomllib.TOMLDecodeError as exc:
+        raise ConfigError(f"o texto gerado não é TOML válido: {exc}") from exc
+    _validar(dados_novos)
+    if caminho.exists():
+        dados_atuais = tomllib.loads(caminho.read_text(encoding="utf-8"))
+        sem_itens = {k: v for k, v in dados_atuais.items() if k != "itens"}
+        if {k: v for k, v in dados_novos.items() if k != "itens"} != sem_itens:
+            raise ConfigError("a regravação alteraria seções além de [[itens]]; abortada")
+    gravar_atomico(caminho, texto_novo)
+
+
+def atualizar_itens(
+    caminho: str | Path,
+    itens: list[tuple[int, int]],
+    nomes: dict[int, str] | None = None,
+    versao_esperada: str | None = None,
+) -> str:
+    """Regrava os `[[itens]]` de `caminho` sob o lock `config.toml.lock` e devolve a versão
+    nova. Com `versao_esperada`, lança `ConflitoConfig` se o arquivo mudou desde a leitura
+    (cobre também quem não usa o lock, como uma edição no nano)."""
+    caminho = Path(caminho)
+    with travado(caminho.with_name(caminho.name + ".lock")):
+        texto = caminho.read_text(encoding="utf-8")
+        if versao_esperada is not None and versao_config(texto) != versao_esperada:
+            raise ConflitoConfig("o config.toml mudou desde que foi lido; recarregue")
+        todos_nomes = {**nomes_nos_comentarios(texto), **(nomes or {})}
+        texto_novo = regenerar_bloco_itens(texto, itens, todos_nomes)
+        if texto_novo != texto:
+            gravar_config(caminho, texto_novo)
+        return versao_config(texto_novo)

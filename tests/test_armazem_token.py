@@ -37,7 +37,7 @@ def test_gravar_e_carregar_faz_roundtrip_sem_deixar_temporario(tmp_path):
     armazem.gravar(token)
 
     assert armazem.carregar() == token
-    assert not (tmp_path / "token.json.tmp").exists()
+    assert list(tmp_path.glob("*.tmp")) == []
 
 
 def test_carregar_sem_arquivo_devolve_none(tmp_path):

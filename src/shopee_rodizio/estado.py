@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-import os
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
+
+from .arquivo import gravar_atomico
 
 
 @dataclass(frozen=True)
@@ -52,9 +53,5 @@ def historico_recente(estado: Estado, item_id: int) -> list[RegistroBoost]:
 
 
 def _gravar(estado: Estado) -> None:
-    caminho = estado.caminho
-    caminho.parent.mkdir(parents=True, exist_ok=True)
     dados = {"historico": [asdict(registro) for registro in estado.historico]}
-    tmp = caminho.with_name(caminho.name + ".tmp")
-    tmp.write_text(json.dumps(dados, indent=2, ensure_ascii=False), encoding="utf-8")
-    os.replace(tmp, caminho)
+    gravar_atomico(estado.caminho, json.dumps(dados, indent=2, ensure_ascii=False))

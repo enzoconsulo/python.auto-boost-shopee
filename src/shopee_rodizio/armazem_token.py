@@ -15,37 +15,15 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 
+from .arquivo import gravar_atomico, travado
 from .cliente_shopee import ClienteShopee, Token
 from .config import Config
 
 NOME_ARQUIVO_TOKEN = "token.json"
-
-if os.name == "nt":  # desenvolvimento e testes no Windows
-
-    import msvcrt
-
-    def _travar(handle) -> None:
-        handle.seek(0)
-        msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
-
-    def _destravar(handle) -> None:
-        handle.seek(0)
-        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
-
-else:
-
-    import fcntl
-
-    def _travar(handle) -> None:
-        fcntl.flock(handle, fcntl.LOCK_EX)
-
-    def _destravar(handle) -> None:
-        fcntl.flock(handle, fcntl.LOCK_UN)
 
 
 class ArmazemToken:
@@ -67,26 +45,18 @@ class ArmazemToken:
 
     def gravar(self, token: Token) -> None:
         """Grava `token` atomicamente (arquivo temporário + `os.replace`)."""
-        self.caminho.parent.mkdir(parents=True, exist_ok=True)
         dados = {
             "access_token": token.access_token,
             "refresh_token": token.refresh_token,
             "expira_em": token.expira_em.isoformat() if token.expira_em else None,
         }
-        tmp = self.caminho.with_name(self.caminho.name + ".tmp")
-        tmp.write_text(json.dumps(dados, indent=2, ensure_ascii=False), encoding="utf-8")
-        os.replace(tmp, self.caminho)
+        gravar_atomico(self.caminho, json.dumps(dados, indent=2, ensure_ascii=False))
 
     @contextlib.contextmanager
     def travado(self) -> Iterator[None]:
         """Lock exclusivo entre processos para a janela reler → renovar → gravar."""
-        self._caminho_lock.parent.mkdir(parents=True, exist_ok=True)
-        with open(self._caminho_lock, "a+") as handle:
-            _travar(handle)
-            try:
-                yield
-            finally:
-                _destravar(handle)
+        with travado(self._caminho_lock):
+            yield
 
 
 def caminho_token(config: Config) -> Path:
