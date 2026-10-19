@@ -10,6 +10,10 @@ token.json
 token.json.lock
 token.json.tmp
 estado.json
+catalogo.json
+config.toml.lock
+# temporários da escrita atômica (arquivo.gravar_atomico)
+.*.tmp
 *.log
 
 analista_dados_shopee/
