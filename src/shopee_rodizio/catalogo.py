@@ -14,13 +14,21 @@ Endpoints, todos GET:
 Formato do estoque: a API tem `stock_info_v2.summary_info.total_available_stock` (atual) e
 `stock_info[0].normal_stock` (legado, o que a implementação irmã lê). Não sabemos qual a
 conta devolve, então a extração aceita os dois; ausência vira `None`, nunca erro.
+
+Cache em disco (`catalogo.json`, ao lado do `estado.json`): o painel não bate na API a
+cada carregamento de página — só quando o cache vence (`[painel].cache_horas`) ou o
+usuário pede, e nunca mais de uma vez por `INTERVALO_MINIMO_ATUALIZACAO`.
 """
 
 from __future__ import annotations
 
+import json
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, field
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
+from .arquivo import gravar_atomico
 from .cliente_shopee import ClienteShopee
 
 PATH_LISTA_ITENS = "/api/v2/product/get_item_list"
@@ -28,6 +36,11 @@ PATH_INFO_ITENS = "/api/v2/product/get_item_base_info"
 PATH_MODELOS = "/api/v2/product/get_model_list"
 PAGE_SIZE = 50
 LOTE_INFO = 50
+NOME_ARQUIVO_CACHE = "catalogo.json"
+INTERVALO_MINIMO_ATUALIZACAO = timedelta(seconds=60)
+# pausa entre chamadas consecutivas numa atualização — gentileza com o limite de taxa da
+# Shopee (a implementação irmã usa o mesmo valor entre chamadas de get_model_list)
+PAUSA_ENTRE_CHAMADAS = 0.2
 
 
 class ErroCatalogo(RuntimeError):
@@ -157,3 +170,56 @@ def _estoque(bruto: dict) -> int | None:
         if isinstance(info.get("normal_stock"), int)
     ]
     return legado[0] if legado else None
+
+
+# --- Cache em disco -------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class CacheCatalogo:
+    atualizado_em: datetime | None = None
+    itens: tuple[ItemCatalogo, ...] = field(default_factory=tuple)
+
+    def vencido(self, horas: float, agora: datetime | None = None) -> bool:
+        if self.atualizado_em is None:
+            return True
+        return (agora or datetime.now(UTC)) - self.atualizado_em >= timedelta(hours=horas)
+
+
+def caminho_cache(caminho_estado: str | Path) -> Path:
+    """`catalogo.json` fica ao lado do `estado.json` (runtime, não config do usuário)."""
+    return Path(caminho_estado).with_name(NOME_ARQUIVO_CACHE)
+
+
+def carregar_cache(caminho: str | Path) -> CacheCatalogo:
+    """Lê o cache; ausente ou ilegível vira cache vazio (vencido) — nunca erro."""
+    try:
+        dados = json.loads(Path(caminho).read_text(encoding="utf-8"))
+        return CacheCatalogo(
+            atualizado_em=datetime.fromisoformat(dados["atualizado_em"]),
+            itens=tuple(ItemCatalogo(**item) for item in dados["itens"]),
+        )
+    except (OSError, ValueError, KeyError, TypeError):
+        return CacheCatalogo()
+
+
+def gravar_cache(caminho: str | Path, cache: CacheCatalogo) -> None:
+    dados = {
+        "atualizado_em": cache.atualizado_em.isoformat() if cache.atualizado_em else None,
+        "itens": [asdict(item) for item in cache.itens],
+    }
+    gravar_atomico(caminho, json.dumps(dados, indent=2, ensure_ascii=False))
+
+
+def baixar_catalogo(
+    cliente: ClienteShopee,
+    *,
+    buscar_variacoes: bool,
+    pausa: float = PAUSA_ENTRE_CHAMADAS,
+    agora: datetime | None = None,
+) -> CacheCatalogo:
+    """Busca o catálogo ativo inteiro. Lança `ErroCatalogo` se a listagem falhar."""
+    ids = buscar_item_ids_ativos(cliente, pausa=pausa)
+    detalhes = buscar_detalhes(cliente, ids, buscar_variacoes=buscar_variacoes, pausa=pausa)
+    itens = tuple(detalhes.get(item_id) or ItemCatalogo(id=item_id, nome="") for item_id in ids)
+    return CacheCatalogo(atualizado_em=agora or datetime.now(UTC), itens=itens)

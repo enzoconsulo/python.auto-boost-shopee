@@ -205,3 +205,49 @@ proxy_https = "socks5h://127.0.0.1:1080"
     assert dados["itens"] == [{"id": 1, "peso": 40}, {"id": 2, "peso": 3}]
     assert dados["rede"] == {"proxy_https": "socks5h://127.0.0.1:1080"}
     assert "id = 1  # Filamento PETG 1kg" in config.read_text(encoding="utf-8")
+
+
+# --- cache em disco -------------------------------------------------------------------------
+
+
+def test_cache_roundtrip_e_vencimento(tmp_path):
+    from datetime import UTC, datetime, timedelta
+
+    from shopee_rodizio.catalogo import CacheCatalogo, carregar_cache, gravar_cache
+
+    agora = datetime(2026, 10, 19, 12, tzinfo=UTC)
+    cache = CacheCatalogo(atualizado_em=agora, itens=(extrair_item(ITEM_SIMPLES),))
+
+    gravar_cache(tmp_path / "catalogo.json", cache)
+    relido = carregar_cache(tmp_path / "catalogo.json")
+
+    assert relido == cache
+    assert not relido.vencido(24, agora + timedelta(hours=23))
+    assert relido.vencido(24, agora + timedelta(hours=24))
+
+
+def test_cache_ausente_ou_corrompido_vira_vazio_e_vencido(tmp_path):
+    from shopee_rodizio.catalogo import carregar_cache
+
+    (tmp_path / "corrompido.json").write_text("{nao é json", encoding="utf-8")
+
+    for caminho in (tmp_path / "nao-existe.json", tmp_path / "corrompido.json"):
+        cache = carregar_cache(caminho)
+        assert cache.itens == ()
+        assert cache.vencido(24)
+
+
+def test_baixar_catalogo_mantem_item_ativo_sem_detalhe():
+    from shopee_rodizio.catalogo import baixar_catalogo
+
+    cliente = _ClienteFake(
+        {
+            PATH_LISTA_ITENS: [_ok({"item": [{"item_id": 1}, {"item_id": 5}]})],
+            PATH_INFO_ITENS: [_ok({"item_list": [ITEM_SIMPLES]})],
+        }
+    )
+
+    cache = baixar_catalogo(cliente, buscar_variacoes=False, pausa=0)
+
+    assert [item.id for item in cache.itens] == [1, 5]
+    assert cache.itens[1].nome == ""
