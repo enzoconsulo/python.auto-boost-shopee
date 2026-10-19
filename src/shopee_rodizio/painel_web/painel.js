@@ -214,7 +214,14 @@ function criarCartao(item) {
   const cartao = $("tpl-item").content.firstElementChild.cloneNode(true);
   cartao.dataset.id = item.id;
   const foto = cartao.querySelector(".foto");
-  if (item.imagem_url && item.imagem_url.startsWith("https://")) foto.src = item.imagem_url;
+  if (item.imagem_url && item.imagem_url.startsWith("https://")) {
+    foto.src = item.imagem_url;
+  } else {
+    // sem foto: um bloco vazio no lugar, em vez do ícone de imagem quebrada
+    const vazio = document.createElement("div");
+    vazio.className = "foto";
+    foto.replaceWith(vazio);
+  }
   cartao.querySelector(".nome").textContent = item.nome || `Item ${item.id}`;
   cartao.querySelector(".meta").textContent = textoMeta(item);
   cartao.querySelector(".hist").textContent = textoHistorico(item.id);
