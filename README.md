@@ -255,6 +255,17 @@ incluir/remover itens da rotação e mexer nos pesos com slider. Mostra também 
 estimada de cada item entrar num ciclo (simula o mesmo sorteio do `selecao.py`) e o
 histórico de boosts dos últimos 7 dias.
 
+Duas abas a mais, só de leitura e calculadas a partir do `estado.json`:
+- **No ar agora:** itens com boost ativo (sucesso nas últimas 4h, com barra de quanto
+  falta para expirar) e o resultado do último ciclo, item a item, com o motivo de cada
+  falha.
+- **Relatório:** escolha 24h, 7, 30 ou 90 dias e veja:
+  - o resumo (boosts com sucesso, falhas, taxa, ciclos, itens distintos);
+  - os boosts por dia;
+  - uma tabela por item comparando a parte dos boosts que ele recebeu com a parte do peso
+    que ele tem hoje (verde/vermelho quando a diferença passa de 5 pontos);
+  - as falhas mais frequentes.
+
 **Instalar** (no Pi, na raiz do projeto — idempotente, rode de novo após `git pull`):
 
 ```

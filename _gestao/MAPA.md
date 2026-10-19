@@ -1,6 +1,6 @@
 # MAPA — shopee-rodizio
 
-<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: 5f48f48 · 2026-10-19 (gerado por script equivalente; _sistema/ ausente nesta máquina) -->
+<!-- GERADO por _sistema/ferramentas/mapa.mjs. NÃO editar à mão — a próxima geração sobrescreve. HEAD: e20dfee · 2026-10-19 (gerado por script equivalente; _sistema/ ausente nesta máquina) -->
 
 Índice denso deste projeto: o que existe, onde, e a assinatura de cada símbolo
 público. **Existe para você não precisar varrer o projeto para se orientar** — ler o
@@ -14,13 +14,13 @@ você vai modificar ou cujo comportamento interno você precisa conferir.
 ```
 (raiz)  CLAUDE.md, README.md, config.example.toml, pyproject.toml, uv.lock
 _gestao/  DECISOES.md, ESPECIFICACAO.md, GUIA.md, MAPA.md, PLANO.md, PROGRESSO.md, equipe.json
-_gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md, T-012-escrita-atomica-config.md, T-013-erro-sem-credencial.md, T-014-espera-na-subida.md, T-015-releitura-config-por-ciclo.md, T-016-systemd-e-logs.md, T-017-modulo-catalogo.md, T-018-cache-catalogo.md, T-019-painel-web.md, T-020-deploy-painel.md
+_gestao/tarefas/  T-001-scaffold.md, T-002-config.md, T-003-estado.md, T-004-cliente-shopee.md, T-005-boost.md, T-006-selecao-ponderada.md, T-007-logging.md, T-008-ciclo.md, T-009-systemd-deploy.md, T-010-smoke-test.md, T-011-corrigir-lint-projeto.md, T-012-escrita-atomica-config.md, T-013-erro-sem-credencial.md, T-014-espera-na-subida.md, T-015-releitura-config-por-ciclo.md, T-016-systemd-e-logs.md, T-017-modulo-catalogo.md, T-018-cache-catalogo.md, T-019-painel-web.md, T-020-deploy-painel.md, T-021-abas-no-ar-e-relatorio.md
 scripts/  definir_senha_painel.py, emprestar_token.py, esperar_porta.sh, gerar_token.py, sincronizar_itens.py, smoke_test.py
 scripts/atalhos/  definir_senha_painel.sh, editar_pesos.sh, gerar_token.sh, iniciar_servico.sh, instalar_painel.sh, instalar_servico.sh, instalar_tunel.sh, parar_servico.sh, reiniciar_servico.sh, sincronizar_itens.sh, smoke_test.sh, status_servico.sh, status_tunel.sh, ver_logs.sh
-src/shopee_rodizio/  __init__.py, __main__.py, armazem_token.py, arquivo.py, boost.py, catalogo.py, ciclo.py, cliente_shopee.py, config.py, estado.py, logging_config.py, painel.py, selecao.py
+src/shopee_rodizio/  __init__.py, __main__.py, armazem_token.py, arquivo.py, boost.py, catalogo.py, ciclo.py, cliente_shopee.py, config.py, estado.py, logging_config.py, painel.py, relatorio.py, selecao.py
 src/shopee_rodizio/painel_web/  index.html, painel.css, painel.js
 systemd/  shopee-painel.service, shopee-proxy-tunnel.service, shopee-rodizio.service
-tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, test_config_gravacao.py, test_emprestar_token.py, test_estado.py, test_logging_config.py, test_loop_subida_e_releitura.py, test_painel.py, test_scaffold.py, test_selecao.py
+tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, test_cliente_shopee.py, test_config.py, test_config_gravacao.py, test_emprestar_token.py, test_estado.py, test_logging_config.py, test_loop_subida_e_releitura.py, test_painel.py, test_relatorio.py, test_scaffold.py, test_selecao.py
 ```
 
 ## Símbolos públicos por arquivo
@@ -146,6 +146,8 @@ tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, t
 - `host_permitido(host: str | None, nomes_maquina: tuple[str, ...])`
 - `_nomes_desta_maquina()`
 - `montar_estado(config: Config, texto_config: str, cache: catalogo.CacheCatalogo, *, agora: datetime | None=None, erro_catalogo: str | None=None)`
+- `montar_relatorio(config: Config, texto_config: str, cache: catalogo.CacheCatalogo, dias: int, *, agora: datetime | None=None)`
+- `dias_do_pedido(query: str)`
 - `PedidoInvalido` *(classe)*
 - `validar_pesos(corpo: object, ids_conhecidos: set[int])`
 - `Painel` *(classe)*
@@ -153,6 +155,15 @@ tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, t
 - `criar_servidor(caminho_config: str | Path, endereco: str, porta: int)`
 - `_analisar_args(argv: list[str])`
 - `main(argv: list[str] | None=None)`
+
+### `src/shopee_rodizio/relatorio.py` — Leitura do histórico (`estado.json`) para as abas "No ar agora" e "Relatório" do painel.
+- `_Registro` *(classe)*
+- `_registros(estado: Estado)`
+- `_ciclos(registros: list[_Registro])`
+- `no_ar_agora(estado: Estado, agora: datetime | None=None)`
+- `relatorio(estado: Estado, dias: int, pesos_atuais: dict[int, int], agora: datetime | None=None)`
+- `_linha_item(item_id: int, peso: int | None)`
+- `_erro_resumido(mensagem: str)`
 
 ### `src/shopee_rodizio/selecao.py` — Sorteio ponderado de itens, sem reposição, para um único ciclo de boost.
 - `selecionar(itens: list[Item], limite_slots: int, rng: random.Random=random)`
@@ -328,6 +339,20 @@ tests/  test_armazem_token.py, test_boost.py, test_catalogo.py, test_ciclo.py, t
 - `test_falha_ao_atualizar_catalogo_mantem_cache_e_mostra_erro(ambiente)`
 - `test_sem_senha_configurada_o_painel_nao_atende(tmp_path)`
 - `test_definir_senha_cria_secao_painel_sem_mexer_no_resto(tmp_path)`
+- `test_relatorio_responde_agregados_com_nomes_e_sem_credenciais(ambiente)`
+- `test_relatorio_exige_senha(ambiente)`
+
+### `tests/test_relatorio.py` — Testes de `relatorio.py`: agregados do histórico para as abas do painel.
+- `_r(item_id: int, atras: timedelta, sucesso: bool=True, mensagem: str='ok')`
+- `_estado(*registros: RegistroBoost)`
+- `test_no_ar_agora_lista_so_sucessos_dentro_das_4h_ordenados_por_expiracao()`
+- `test_ultimo_ciclo_agrupa_registros_proximos_e_ignora_ciclos_anteriores()`
+- `test_sem_historico_nada_no_ar_e_sem_ultimo_ciclo()`
+- `test_relatorio_resume_periodo_e_ignora_o_que_e_mais_antigo()`
+- `test_relatorio_por_dia_usa_fuso_de_brasilia_e_tem_um_ponto_por_dia()`
+- `test_relatorio_por_item_compara_parte_dos_boosts_com_parte_do_peso()`
+- `test_erro_http_e_resumido_sem_url()`
+- `test_dias_do_pedido_aceita_so_periodos_conhecidos()`
 
 ### `tests/test_scaffold.py`
 - `test_pacote_existe()`

@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="referrer" content="no-referrer">
-<title>Pesos do rodízio</title>
+<title>Rodízio Shopee</title>
 <link rel="stylesheet" href="/painel.css">
 </head>
 <body>
 <header class="topo">
   <div class="titulo">
-    <h1>Pesos do rodízio</h1>
+    <h1>Rodízio Shopee</h1>
     <p id="resumo-ciclo" class="sutil">carregando…</p>
   </div>
   <div class="acoes-topo">
@@ -19,8 +19,15 @@
   </div>
 </header>
 
+<nav class="abas" role="tablist">
+  <button type="button" role="tab" class="aba" data-aba="pesos">Pesos</button>
+  <button type="button" role="tab" class="aba" data-aba="agora">No ar agora</button>
+  <button type="button" role="tab" class="aba" data-aba="relatorio">Relatório</button>
+</nav>
+
 <div id="aviso" class="aviso" hidden></div>
 
+<div id="aba-pesos" class="painel-aba">
 <section class="filtros">
   <input id="busca" type="search" placeholder="Buscar por nome ou ID" autocomplete="off">
   <label class="chk"><input id="so-rodizio" type="checkbox"> só os que estão no rodízio</label>
@@ -33,6 +40,48 @@
 </section>
 
 <main id="lista" class="lista" aria-live="polite"></main>
+</div>
+
+<div id="aba-agora" class="painel-aba" hidden>
+  <section class="bloco">
+    <h2 class="secao">Impulsionados agora</h2>
+    <p id="agora-legenda" class="sutil"></p>
+    <div id="agora-lista" class="lista-compacta"></div>
+  </section>
+  <section class="bloco">
+    <h2 class="secao">Último ciclo</h2>
+    <p id="ultimo-legenda" class="sutil"></p>
+    <div id="ultimo-lista" class="lista-compacta"></div>
+  </section>
+</div>
+
+<div id="aba-relatorio" class="painel-aba" hidden>
+  <section class="bloco">
+    <div class="linha-titulo">
+      <h2 class="secao">Resumo</h2>
+      <select id="dias" aria-label="Período">
+        <option value="1">últimas 24 horas</option>
+        <option value="7" selected>últimos 7 dias</option>
+        <option value="30">últimos 30 dias</option>
+        <option value="90">últimos 90 dias</option>
+      </select>
+    </div>
+    <div id="rel-resumo" class="numeros"></div>
+  </section>
+  <section class="bloco">
+    <h2 class="secao">Boosts por dia</h2>
+    <div id="rel-dias" class="barras"></div>
+  </section>
+  <section class="bloco">
+    <h2 class="secao">Por item</h2>
+    <p class="sutil">Parte dos boosts que o item recebeu × parte do peso que ele tem hoje.</p>
+    <div class="tabela-rolagem"><table id="rel-itens" class="tabela"></table></div>
+  </section>
+  <section class="bloco">
+    <h2 class="secao">Falhas mais frequentes</h2>
+    <div id="rel-erros"></div>
+  </section>
+</div>
 
 <footer id="barra-salvar" class="barra-salvar" hidden>
   <span id="pendentes"></span>

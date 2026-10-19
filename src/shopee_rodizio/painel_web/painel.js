@@ -318,6 +318,169 @@ function avisar(texto, erro) {
 const pct = (x) => `${(x * 100).toFixed(x < 0.1 ? 1 : 0)}%`;
 const dataHora = (d) => d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 
+// --- abas "No ar agora" e "Relatório" ------------------------------------------------------
+// Carregadas só quando a aba é aberta (uma requisição, agregados prontos do Pi).
+
+const ABAS = ["pesos", "agora", "relatorio"];
+
+function abrirAba(nome) {
+  if (!ABAS.includes(nome)) nome = "pesos";
+  for (const aba of ABAS) $(`aba-${aba}`).hidden = aba !== nome;
+  document.querySelectorAll(".aba").forEach((botao) => {
+    botao.setAttribute("aria-selected", String(botao.dataset.aba === nome));
+  });
+  if (location.hash !== `#${nome}`) history.replaceState(null, "", `#${nome}`);
+  if (nome !== "pesos") carregarRelatorio();
+}
+
+async function carregarRelatorio() {
+  try {
+    const r = await api("GET", `/api/relatorio?dias=${$("dias").value}`);
+    desenharAgora(r);
+    desenharRelatorio(r);
+  } catch (erro) {
+    avisar(`Não foi possível carregar o relatório: ${erro.message}`, true);
+  }
+}
+
+function el(tag, classe, texto) {
+  const e = document.createElement(tag);
+  if (classe) e.className = classe;
+  if (texto !== undefined) e.textContent = texto;
+  return e;
+}
+
+function linhaItem(r, id, direita, progresso) {
+  const linha = el("div", "linha-item");
+  const url = r.imagens[id];
+  if (url && url.startsWith("https://")) {
+    const foto = el("img", "foto");
+    foto.src = url;
+    foto.alt = "";
+    foto.loading = "lazy";
+    foto.referrerPolicy = "no-referrer";
+    linha.appendChild(foto);
+  } else {
+    linha.appendChild(el("div", "foto"));
+  }
+  const meio = el("div", "info");
+  meio.appendChild(el("p", "nome", r.nomes[id] || `Item ${id}`));
+  if (progresso !== undefined) {
+    const barra = el("div", "progresso");
+    const cheio = el("div");
+    cheio.style.width = `${Math.max(0, Math.min(1, progresso)) * 100}%`;
+    barra.appendChild(cheio);
+    meio.appendChild(barra);
+  }
+  linha.append(meio, direita);
+  return linha;
+}
+
+function desenharAgora(r) {
+  const agora = r.agora;
+  const horas = agora.duracao_boost_horas;
+  $("agora-legenda").textContent = agora.no_ar.length
+    ? `${agora.no_ar.length} item(ns) com boost ativo (cada boost dura ${horas}h).`
+    : `Nenhum boost ativo agora (cada boost dura ${horas}h).`;
+  $("agora-lista").replaceChildren(...agora.no_ar.map((item) => {
+    const min = item.minutos_restantes;
+    const resta = min >= 60 ? `${Math.floor(min / 60)}h${String(min % 60).padStart(2, "0")}` : `${min} min`;
+    const direita = el("span", "etiqueta ok", `expira em ${resta}`);
+    return linhaItem(r, item.id, direita, min / (horas * 60));
+  }));
+
+  const ultimo = agora.ultimo_ciclo;
+  if (!ultimo.em) {
+    $("ultimo-legenda").textContent = "Nenhum ciclo registrado ainda.";
+    $("ultimo-lista").replaceChildren();
+    return;
+  }
+  const ok = ultimo.itens.filter((i) => i.sucesso).length;
+  $("ultimo-legenda").textContent =
+    `${dataHora(new Date(ultimo.em))} · ${ok} de ${ultimo.itens.length} com sucesso`;
+  $("ultimo-lista").replaceChildren(...ultimo.itens.map((item) => {
+    const direita = el("span", `etiqueta ${item.sucesso ? "ok" : "falha"}`,
+      item.sucesso ? "impulsionado" : "falhou");
+    if (!item.sucesso) direita.title = item.mensagem;
+    const linha = linhaItem(r, item.id, direita);
+    if (!item.sucesso) linha.querySelector(".info").appendChild(el("p", "sutil", item.mensagem));
+    return linha;
+  }));
+}
+
+function desenharRelatorio(r) {
+  const rel = r.relatorio;
+  const res = rel.resumo;
+  const taxa = res.tentativas ? res.sucessos / res.tentativas : 0;
+  const numeros = [
+    ["boosts com sucesso", res.sucessos],
+    ["falhas", res.falhas],
+    ["taxa de sucesso", pct(taxa)],
+    ["ciclos", `${res.ciclos_com_sucesso}/${res.ciclos}`],
+    ["itens impulsionados", res.itens_impulsionados],
+  ];
+  $("rel-resumo").replaceChildren(...numeros.map(([rotulo, valor]) => {
+    const caixa = el("div", "numero");
+    caixa.append(el("strong", "", String(valor)), el("span", "sutil", rotulo));
+    return caixa;
+  }));
+
+  const maximo = Math.max(1, ...rel.por_dia.map((d) => d.sucessos + d.falhas));
+  const barras = $("rel-dias");
+  barras.replaceChildren(...rel.por_dia.map((d) => {
+    const coluna = el("div", "barra");
+    coluna.title = `${dia(d.dia)}: ${d.sucessos} ok, ${d.falhas} falha(s)`;
+    const ok = el("div", "ok");
+    ok.style.height = `${(d.sucessos / maximo) * 100}%`;
+    const falha = el("div", "falha");
+    falha.style.height = `${(d.falhas / maximo) * 100}%`;
+    coluna.append(ok, falha);
+    return coluna;
+  }));
+  const eixo = el("div", "eixo sutil");
+  eixo.append(el("span", "", dia(rel.por_dia[0].dia)),
+    el("span", "", `máx. ${maximo}/dia · verde ok, vermelho falha`),
+    el("span", "", dia(rel.por_dia[rel.por_dia.length - 1].dia)));
+  barras.after(eixo);
+  if (eixo.nextElementSibling && eixo.nextElementSibling.classList.contains("eixo")) {
+    eixo.nextElementSibling.remove();
+  }
+
+  const tabela = $("rel-itens");
+  const cabecalho = el("tr");
+  for (const [titulo, classe] of [["Item", ""], ["Peso", "num"], ["OK", "num"], ["Falhas", "num"],
+    ["% boosts", "num"], ["% peso", "num"], ["Último boost", ""]]) {
+    cabecalho.appendChild(el("th", classe, titulo));
+  }
+  const linhas = rel.por_item.map((item) => {
+    const tr = el("tr");
+    const desvio = item.parte_dos_boosts - item.parte_do_peso;
+    const classeDesvio = item.peso && Math.abs(desvio) >= 0.05
+      ? (desvio > 0 ? "num desvio-acima" : "num desvio-abaixo") : "num";
+    const nome = el("td", "nome-item", r.nomes[item.id] || `Item ${item.id}`);
+    nome.title = `${r.nomes[item.id] || ""} (ID ${item.id})`;
+    tr.append(
+      nome,
+      el("td", "num", item.peso ?? "—"),
+      el("td", "num", item.sucessos),
+      el("td", "num", item.falhas),
+      el("td", classeDesvio, pct(item.parte_dos_boosts)),
+      el("td", "num", item.peso ? pct(item.parte_do_peso) : "fora"),
+      el("td", "", item.ultimo_sucesso_em ? dataHora(new Date(item.ultimo_sucesso_em)) : "—"),
+    );
+    return tr;
+  });
+  tabela.replaceChildren(cabecalho, ...linhas);
+
+  $("rel-erros").replaceChildren(...(rel.erros.length ? rel.erros.map((e) => {
+    const p = el("p", "sutil");
+    p.append(el("strong", "", `${e.vezes}× `), document.createTextNode(e.mensagem));
+    return p;
+  }) : [el("p", "sutil", "Nenhuma falha no período.")]));
+}
+
+const dia = (iso) => new Date(`${iso}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
 // --- eventos -------------------------------------------------------------------------------
 
 $("btn-atualizar").addEventListener("click", atualizarCatalogo);
@@ -329,5 +492,11 @@ $("ordem").addEventListener("change", () => dados && renderizar());
 window.addEventListener("beforeunload", (evento) => {
   if (edicoes.size) evento.preventDefault();
 });
+document.querySelectorAll(".aba").forEach((botao) => {
+  botao.addEventListener("click", () => abrirAba(botao.dataset.aba));
+});
+$("dias").addEventListener("change", carregarRelatorio);
+window.addEventListener("hashchange", () => abrirAba(location.hash.slice(1)));
 
 carregar();
+abrirAba(location.hash.slice(1));

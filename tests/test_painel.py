@@ -301,3 +301,36 @@ def test_definir_senha_cria_secao_painel_sem_mexer_no_resto(tmp_path):
     assert dados["painel"] == {"senha_hash": "pbkdf2_sha256$1$cc$dd"}
     assert dados["rede"]["proxy_https"] == "socks5h://127.0.0.1:1080"
     assert dados["itens"] == [{"id": 1, "peso": 40}, {"id": 2, "peso": 30}]
+
+
+def test_relatorio_responde_agregados_com_nomes_e_sem_credenciais(ambiente):
+    config, porta = ambiente
+    (config.parent / "estado.json").write_text(
+        json.dumps(
+            {
+                "historico": [
+                    {"item_id": 1, "timestamp": datetime.now(UTC).isoformat(), "sucesso": True,
+                     "mensagem": "impulsionado com sucesso"}
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    status, corpo, _ = _pedir(porta, "GET", "/api/relatorio?dias=30")
+
+    dados = json.loads(corpo)
+    assert status == 200
+    assert dados["relatorio"]["dias"] == 30
+    assert [i["id"] for i in dados["agora"]["no_ar"]] == [1]
+    assert dados["nomes"]["1"] == "Filamento PETG"
+    for segredo in (PARTNER_KEY, ACCESS_TOKEN, REFRESH_TOKEN, "pbkdf2"):
+        assert segredo not in corpo
+
+
+def test_relatorio_exige_senha(ambiente):
+    _, porta = ambiente
+
+    status, _, _ = _pedir(porta, "GET", "/api/relatorio", senha=None)
+
+    assert status == 401

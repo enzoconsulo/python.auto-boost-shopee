@@ -29,6 +29,7 @@ exaustivo de símbolos é o `MAPA.md` ao lado, que é GERADO — ver
 | `src/shopee_rodizio/armazem_token.py` | `token.json` compartilhado entre processos; `cliente_da_config` | qualquer código que chame a Shopee |
 | `src/shopee_rodizio/catalogo.py` | catálogo real da loja + cache `catalogo.json` | mudar o que se busca da loja |
 | `src/shopee_rodizio/painel.py`, `painel_web/` | painel web só-LAN dos pesos | mudar a página, rotas ou acesso |
+| `src/shopee_rodizio/relatorio.py` | agregados do histórico (no ar agora, relatório) | mudar o que o relatório mostra |
 | `scripts/smoke_test.py` | diagnóstico manual: faz UMA chamada real de boost contra a API para confirmar `endpoint_boost` | confirmar/depurar o endpoint com credenciais reais (não roda em CI) |
 | `systemd/shopee-rodizio.service` | unidade systemd para deploy 24/7 no BTT Pi (`Restart=on-failure`) | mudar como o serviço é deployado/reiniciado |
 

@@ -249,3 +249,21 @@ variação, via `get_model_list`), estoque e status `NORMAL`. A atualização co
 get_model_list opcional e formato de estoque incerto" para esta conta; o fallback de
 formatos continua no código.
 **Quem:** executor (deploy T-020)
+
+## 2026-10-19 — Abas "No ar agora" e "Relatório": convenções de leitura do histórico
+**Decisão:** o painel ganhou duas abas só de leitura, alimentadas por `relatorio.py` via
+`GET /api/relatorio`. Convenções:
+- um boost fica "no ar" por 4h depois do registro de sucesso;
+- registros a menos de 10 min um do outro formam um ciclo;
+- os dias do relatório usam UTC-3 fixo.
+**Motivo:**
+- As 4h são o comportamento observado do "Impulsionar" da Shopee (mesma janela do
+  limite de 5 slots já registrado em 2026-08-24), não um dado da API. O `boost_item` não
+  devolve validade e não usamos endpoint de consulta de boost ativo, porque seria mais
+  um endpoint sem confirmação. Fica como constante, `relatorio.DURACAO_BOOST`.
+- O Brasil não tem horário de verão desde 2019. UTC-3 fixo evita depender de tzdata no
+  SBC.
+- Agregação no Pi (uma passada no histórico só quando a aba abre) em vez de mandar o
+  histórico inteiro para o navegador: a resposta fica pequena mesmo com o `estado.json`
+  crescendo. Gráfico em CSS puro, sem biblioteca.
+**Quem:** usuário (pediu as abas) + executor (T-021)

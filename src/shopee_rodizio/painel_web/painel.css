@@ -162,3 +162,72 @@ input[type="search"], input[type="number"], select {
   .foto { width: 56px; height: 56px; }
   .controle { grid-column: 1 / -1; }
 }
+
+/* --- abas ------------------------------------------------------------------------------ */
+
+.abas {
+  display: flex;
+  gap: 4px;
+  max-width: 1100px;
+  margin: 0 auto 12px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--borda);
+}
+.aba {
+  background: transparent;
+  color: var(--sutil);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 8px 12px;
+}
+.aba[aria-selected="true"] { color: var(--texto); border-bottom-color: var(--destaque); font-weight: 600; }
+
+.bloco {
+  max-width: 1100px;
+  margin: 0 auto 18px;
+  padding: 0 16px;
+}
+.secao { font-size: 1.02rem; margin: 0 0 6px; }
+.linha-titulo { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+
+.lista-compacta { display: grid; gap: 6px; margin-top: 8px; }
+.linha-item {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  background: var(--cartao);
+  border: 1px solid var(--borda);
+  border-radius: 8px;
+  padding: 6px 10px;
+}
+.linha-item .foto { width: 40px; height: 40px; border-radius: 6px; }
+.linha-item .nome { -webkit-line-clamp: 1; }
+.etiqueta { font-size: 0.82rem; white-space: nowrap; }
+.etiqueta.ok { color: var(--ok); }
+.etiqueta.falha { color: var(--erro); }
+.progresso { height: 4px; background: var(--borda); border-radius: 2px; margin-top: 4px; }
+.progresso > div { height: 100%; background: var(--destaque); border-radius: 2px; }
+
+.numeros { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-top: 8px; }
+.numero { background: var(--cartao); border: 1px solid var(--borda); border-radius: 8px; padding: 10px 12px; }
+.numero strong { display: block; font-size: 1.4rem; font-variant-numeric: tabular-nums; }
+
+.barras { display: flex; align-items: flex-end; gap: 3px; height: 140px; margin-top: 8px;
+  padding: 0 2px; border-bottom: 1px solid var(--borda); }
+.barra { flex: 1; display: flex; flex-direction: column-reverse; min-width: 3px; height: 100%; }
+.barra .ok { background: var(--ok); border-radius: 2px 2px 0 0; }
+.barra .falha { background: var(--erro); opacity: 0.55; }
+.eixo { display: flex; justify-content: space-between; margin-top: 4px; }
+
+.tabela-rolagem { overflow-x: auto; margin-top: 8px; }
+.tabela { width: 100%; border-collapse: collapse; font-size: 0.88rem; font-variant-numeric: tabular-nums; }
+.tabela { overflow-wrap: normal; }
+.tabela th, .tabela td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--borda);
+  white-space: nowrap; }
+.tabela th { color: var(--sutil); font-weight: 500; }
+.tabela td.num, .tabela th.num { text-align: right; }
+.tabela td.nome-item { max-width: min(340px, 45vw); overflow: hidden; text-overflow: ellipsis; }
+.desvio-acima { color: var(--ok); }
+.desvio-abaixo { color: var(--erro); }

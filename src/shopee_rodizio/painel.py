@@ -43,8 +43,9 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs
 
-from . import armazem_token, catalogo
+from . import armazem_token, catalogo, relatorio
 from .config import (
     Config,
     ConfigError,
@@ -71,6 +72,7 @@ _CSP = (
     "form-action 'none'"
 )
 PESO_MAXIMO = 1000
+DIAS_RELATORIO = (1, 7, 30, 90)
 _TAMANHO_MAXIMO_CORPO = 64 * 1024
 _PAUSA_SENHA_ERRADA = 1.0
 ITERACOES_PBKDF2 = 200_000
@@ -196,6 +198,35 @@ def montar_estado(
         },
         "historico": {str(k): v for k, v in historico.items()},
     }
+
+
+def montar_relatorio(
+    config: Config,
+    texto_config: str,
+    cache: catalogo.CacheCatalogo,
+    dias: int,
+    *,
+    agora: datetime | None = None,
+) -> dict:
+    """JSON das abas "No ar agora" e "Relatório" — só agregados do `estado.json`."""
+    estado = carregar_estado(config.caminhos.estado)
+    nomes = {str(k): v for k, v in nomes_nos_comentarios(texto_config).items()}
+    nomes.update({str(i.id): i.nome for i in cache.itens if i.nome})
+    imagens = {str(i.id): i.imagem_url for i in cache.itens if i.imagem_url}
+    return {
+        "agora": relatorio.no_ar_agora(estado, agora),
+        "relatorio": relatorio.relatorio(
+            estado, dias, {i.id: i.peso for i in config.itens}, agora
+        ),
+        "nomes": nomes,
+        "imagens": imagens,
+    }
+
+
+def dias_do_pedido(query: str) -> int:
+    """`?dias=N` com N em `DIAS_RELATORIO`; qualquer outra coisa vira 7."""
+    valor = parse_qs(query).get("dias", ["7"])[0]
+    return int(valor) if valor.isdigit() and int(valor) in DIAS_RELATORIO else 7
 
 
 class PedidoInvalido(Exception):
@@ -359,6 +390,13 @@ def criar_handler(painel: Painel) -> type[BaseHTTPRequestHandler]:
                 self._json(
                     HTTPStatus.OK,
                     montar_estado(config, texto, cache, erro_catalogo=painel.erro_catalogo),
+                )
+            elif path == "/api/relatorio":
+                config, texto = painel.ler_config()
+                cache = catalogo.carregar_cache(catalogo.caminho_cache(config.caminhos.estado))
+                query = self.path.partition("?")[2]
+                self._json(
+                    HTTPStatus.OK, montar_relatorio(config, texto, cache, dias_do_pedido(query))
                 )
             else:
                 self._texto(HTTPStatus.NOT_FOUND, "não encontrado")

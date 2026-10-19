@@ -58,6 +58,8 @@ uv run ruff check .
   `get_item_base_info`, `get_model_list` opcional) e o cache `catalogo.json`.
 - `src/shopee_rodizio/painel.py` + `painel_web/` — painel web só-LAN dos pesos
   (`http.server` stdlib); serviço separado, `systemd/shopee-painel.service`.
+- `src/shopee_rodizio/relatorio.py` — agregados do `estado.json` para as abas "No ar
+  agora" e "Relatório" do painel (só leitura).
 - `src/shopee_rodizio/armazem_token.py` — `token.json` (irmão do `estado.json`) como fonte
   única do token entre processos: o cliente relê antes de usar e renova sob lock de
   arquivo, gravando na hora. `cliente_da_config(config)` monta o cliente ligado a ele — use
