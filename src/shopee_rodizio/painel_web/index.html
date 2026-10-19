@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Pesos do rodízio</title>
+<link rel="stylesheet" href="/painel.css">
+</head>
+<body>
+<header class="topo">
+  <div class="titulo">
+    <h1>Pesos do rodízio</h1>
+    <p id="resumo-ciclo" class="sutil">carregando…</p>
+  </div>
+  <div class="acoes-topo">
+    <span id="catalogo-status" class="sutil"></span>
+    <button id="btn-atualizar" type="button" class="secundario">Atualizar da Shopee</button>
+  </div>
+</header>
+
+<div id="aviso" class="aviso" hidden></div>
+
+<section class="filtros">
+  <input id="busca" type="search" placeholder="Buscar por nome ou ID" autocomplete="off">
+  <label class="chk"><input id="so-rodizio" type="checkbox"> só os que estão no rodízio</label>
+  <select id="ordem" aria-label="Ordenar por">
+    <option value="peso">ordenar por peso</option>
+    <option value="nome">ordenar por nome</option>
+    <option value="estoque">ordenar por estoque</option>
+    <option value="sucesso">ordenar por último boost</option>
+  </select>
+</section>
+
+<main id="lista" class="lista" aria-live="polite"></main>
+
+<footer id="barra-salvar" class="barra-salvar" hidden>
+  <span id="pendentes"></span>
+  <div>
+    <button id="btn-descartar" type="button" class="secundario">Descartar</button>
+    <button id="btn-salvar" type="button">Salvar</button>
+  </div>
+</footer>
+
+<template id="tpl-item">
+  <article class="item">
+    <img class="foto" alt="" loading="lazy" referrerpolicy="no-referrer">
+    <div class="info">
+      <h2 class="nome"></h2>
+      <p class="meta sutil"></p>
+      <p class="hist sutil"></p>
+    </div>
+    <div class="controle">
+      <label class="chk"><input class="no-rodizio" type="checkbox"> no rodízio</label>
+      <div class="peso-linha">
+        <input class="peso-slider" type="range" min="1" max="100" step="1" aria-label="peso">
+        <input class="peso-num" type="number" min="1" max="1000" step="1" aria-label="peso">
+      </div>
+      <p class="chance sutil"></p>
+    </div>
+  </article>
+</template>
+
+<script src="/painel.js"></script>
+</body>
+</html>

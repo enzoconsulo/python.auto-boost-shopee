@@ -231,9 +231,15 @@ def _nome_de_comentario(nome: str) -> str:
     return " ".join(str(nome).split())
 
 
-def gravar_config(caminho: str | Path, texto_novo: str) -> None:
-    """Grava `texto_novo` atomicamente, só se ele for uma config válida e mudar apenas os
-    `[[itens]]` em relação ao arquivo atual — nunca deixa um config.toml quebrado no disco."""
+def gravar_config(
+    caminho: str | Path,
+    texto_novo: str,
+    *,
+    alteravel: tuple[tuple[str, ...], ...] = (("itens",),),
+) -> None:
+    """Grava `texto_novo` atomicamente, só se ele for uma config válida e mudar apenas as
+    chaves em `alteravel` (padrão: os `[[itens]]`) em relação ao arquivo atual — nunca deixa
+    um config.toml quebrado no disco nem mexe em credenciais por engano."""
     caminho = Path(caminho)
     try:
         dados_novos = tomllib.loads(texto_novo)
@@ -242,10 +248,51 @@ def gravar_config(caminho: str | Path, texto_novo: str) -> None:
     _validar(dados_novos)
     if caminho.exists():
         dados_atuais = tomllib.loads(caminho.read_text(encoding="utf-8"))
-        sem_itens = {k: v for k, v in dados_atuais.items() if k != "itens"}
-        if {k: v for k, v in dados_novos.items() if k != "itens"} != sem_itens:
-            raise ConfigError("a regravação alteraria seções além de [[itens]]; abortada")
+        if _sem_chaves(dados_novos, alteravel) != _sem_chaves(dados_atuais, alteravel):
+            raise ConfigError("a regravação alteraria partes protegidas do config; abortada")
     gravar_atomico(caminho, texto_novo)
+
+
+def _sem_chaves(dados: dict, caminhos: tuple[tuple[str, ...], ...]) -> dict:
+    copia = {k: (dict(v) if isinstance(v, dict) else v) for k, v in dados.items()}
+    for caminho in caminhos:
+        alvo = copia
+        for chave in caminho[:-1]:
+            alvo = alvo.get(chave) if isinstance(alvo.get(chave), dict) else {}
+        alvo.pop(caminho[-1], None)
+    return {k: v for k, v in copia.items() if v != {}}
+
+
+_RE_CABECALHO_PAINEL = re.compile(r"^\s*\[\s*painel\s*\]\s*(#.*)?$")
+_RE_SENHA_HASH = re.compile(r"^\s*senha_hash\s*=")
+
+
+def definir_senha_painel(caminho: str | Path, senha_hash: str) -> None:
+    """Grava `[painel].senha_hash` no config.toml (cria a seção se faltar), atomicamente e
+    sob o mesmo lock do `[[itens]]`; nada além dessa chave pode mudar."""
+    caminho = Path(caminho)
+    linha_nova = f'senha_hash = "{senha_hash}"\n'
+    with travado(caminho.with_name(caminho.name + ".lock")):
+        linhas = caminho.read_text(encoding="utf-8").splitlines(keepends=True)
+        inicio = next((i for i, linha in enumerate(linhas) if _RE_CABECALHO_PAINEL.match(linha)), None)
+        if inicio is None:
+            texto = "".join(linhas).rstrip("\n") + (
+                "\n\n# Painel web dos pesos (ver README). Hash da senha: "
+                "scripts/atalhos/definir_senha_painel.sh\n[painel]\n" + linha_nova
+            )
+        else:
+            fim = inicio + 1
+            while fim < len(linhas) and not _RE_CABECALHO.match(linhas[fim]):
+                fim += 1
+            existente = next(
+                (i for i in range(inicio + 1, fim) if _RE_SENHA_HASH.match(linhas[i])), None
+            )
+            if existente is None:
+                linhas.insert(inicio + 1, linha_nova)
+            else:
+                linhas[existente] = linha_nova
+            texto = "".join(linhas)
+        gravar_config(caminho, texto, alteravel=(("painel", "senha_hash"),))
 
 
 def atualizar_itens(
