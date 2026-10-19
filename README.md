@@ -16,6 +16,11 @@ horas, respeitando um peso configurável por item.
   derruba o processo — é registrada e o rodízio segue.
 - Unidade systemd pronta para deploy 24/7 (`Restart=on-failure`).
 - Script de smoke-test manual para confirmar o endpoint de boost contra credenciais reais.
+- Restart/deploy não queima ciclo: na subida, o serviço espera o que falta do intervalo
+  desde o último ciclo registrado em `estado.json`.
+- `config.toml` relido a cada ciclo: mudança de peso/itens vale no próximo, sem reiniciar.
+- Painel web local (só LAN) para ver o catálogo real da loja e ajustar os pesos — ver
+  "Painel web dos pesos".
 
 ## Como rodar
 
@@ -242,6 +247,67 @@ Se a mensagem indicar `path`/parâmetro inválido, ajuste `ciclo.endpoint_boost`
 Atenção: cada execução faz uma chamada real de impulsionamento (consome o limite da sua
 conta), então rode-o manualmente, não em automação.
 
+## Painel web dos pesos (só na rede local)
+
+Página servida pelo próprio Pi para ver os produtos reais da loja (foto, nome, preço,
+estoque, status), quais estão no rodízio e com que peso, e ajustar tudo visualmente:
+incluir/remover itens da rotação e mexer nos pesos com slider. Mostra também a chance
+estimada de cada item entrar num ciclo (simula o mesmo sorteio do `selecao.py`) e o
+histórico de boosts dos últimos 7 dias.
+
+**Instalar** (no Pi, na raiz do projeto — idempotente, rode de novo após `git pull`):
+
+```
+bash scripts/atalhos/instalar_painel.sh
+```
+
+Na primeira vez ele pede a senha do painel (grava só o hash PBKDF2 em
+`[painel].senha_hash` do `config.toml`, que não é versionado). Para trocar depois:
+`bash scripts/atalhos/definir_senha_painel.sh` — vale na hora, sem reiniciar.
+
+**Acessar:** de um computador da mesma rede, `http://<ip-do-pi>:8790` (ex.:
+`http://192.168.2.112:8790`). Usuário: qualquer um; vale a senha.
+
+**Porta 8790:** escolhida por não colidir com nada que já roda no BTT Pi — Moonraker
+`7125`, Mainsail `80`, ustreamer/crowsnest `8080`–`8083`, SOCKS do túnel `1080`, SSH `22`
+— nem com as portas de desenvolvimento comuns (`3000`, `5000`, `8000`, `8888`). Conferido
+com `ss -ltn` no Pi em 2026-10-19; o instalador confere de novo antes de subir. Muda em
+`[painel].porta` se precisar.
+
+**Escopo de rede:** o painel é tráfego de ENTRADA e fica só na LAN. Nada de port-forward
+no roteador, VPN ou serviço de terceiros. O túnel SSH da Oracle não tem relação com ele:
+o túnel só fixa o IP de SAÍDA das chamadas à Shopee e escuta só em `127.0.0.1:1080`.
+Defesas, além da senha:
+- o painel responde só a IPs de redes privadas (`10/8`, `172.16/12`, `192.168/16` e
+  loopback). Endereços do Tailscale (`100.64/10`) e de fora são recusados. Dá para mudar
+  em `[painel].redes_permitidas`;
+- escuta só em IPv4, então um IPv6 global do Pi não expõe o painel;
+- escrita só via `POST` JSON com header próprio, o que barra CSRF a partir de outra aba;
+  o header `Host` tem de ser IP ou o nome do Pi, o que barra DNS rebinding;
+- nenhuma página, resposta ou log carrega `partner_key`, `access_token` ou
+  `refresh_token`.
+
+**Aplicar sem reiniciar:** o painel só grava o `config.toml`, de forma atômica e só no
+bloco `[[itens]]`. O rodízio relê o arquivo no início de cada ciclo, então a mudança vale
+a partir do próximo ciclo (horário mostrado no topo da página). Se o arquivo for alterado
+por outro lugar (nano, `sincronizar_itens.sh`) enquanto a página está aberta, o
+salvamento é recusado e a página pede para recarregar, em vez de sobrescrever.
+
+**Catálogo e API da Shopee:** o painel não chama a Shopee a cada carregamento. O catálogo
+fica em cache em `catalogo.json` (ao lado do `estado.json`) por `[painel].cache_horas`
+(padrão 24h). O botão "Atualizar da Shopee" força uma busca, no máximo uma por minuto,
+com pausa entre as chamadas. O token usado é o do `token.json` compartilhado com o
+serviço.
+
+**Peso no Pi:** é um serviço separado (`shopee-painel.service`), que não depende do
+rodízio nem é dependência dele. Roda com prioridade de CPU e disco `idle` (só usa o que
+o Klipper deixa), `CPUQuota=50%` e `MemoryMax=96M`. Parado, não usa CPU.
+
+**Atenção com `sincronizar_itens.sh`:** ele põe no rodízio TODO anúncio ativo da loja (os
+novos com `--peso-padrao`). Item que você tirou da rotação pelo painel volta a entrar se
+você rodar a sincronização depois. Para quem usa o painel, o painel já cobre esse caso de
+uso.
+
 ## Atalhos do dia a dia (scripts/atalhos/)
 
 Depois do deploy inicial, o operacional do dia a dia é só isto — rode a partir da raiz do
@@ -252,6 +318,8 @@ projeto no BTT Pi (`bash scripts/atalhos/<nome>.sh`, funciona mesmo sem o bit de
 | `instalar_servico.sh` | Copia a unidade systemd, `daemon-reload`, `enable --now`. Idempotente — rode de novo após um `git pull` que mude `systemd/shopee-rodizio.service`. |
 | `instalar_tunel.sh` | Idem, para o túnel de IP fixo (`shopee-proxy-tunnel.service`) — ver "IP de saída fixo". |
 | `status_tunel.sh` | Mostra se o túnel de IP fixo está de pé. |
+| `instalar_painel.sh` | Instala/atualiza o painel web dos pesos (`shopee-painel.service`); pede a senha na primeira vez. Idempotente. |
+| `definir_senha_painel.sh` | Define/troca a senha do painel (só o hash vai para o `config.toml`). |
 | `iniciar_servico.sh` | `systemctl start` (serviço já instalado, só parado). |
 | `parar_servico.sh` | `systemctl stop` (não desabilita o start automático no boot). |
 | `reiniciar_servico.sh` | `systemctl restart` — necessário só depois de atualizar o código; `config.toml` é relido a cada ciclo. Não queima ciclo. |

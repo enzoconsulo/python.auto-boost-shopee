@@ -141,3 +141,101 @@ processo que renovasse invalidaria a cadeia dele. Isso já acontecia com
 `config.toml`, já consumido pelo serviço. Alternativa descartada: servidor HTTP no Pi para
 entregar o token (mais uma porta aberta e mais um serviço; o SSH já existe e já autentica).
 **Quem:** usuário (escolheu o Pi como dono do token) + executor
+
+## 2026-10-19 — Na subida, o serviço espera o que falta do intervalo desde o último ciclo
+**Decisão:** `executar_loop` lê o timestamp mais recente do `estado.json` (com sucesso ou
+não) e dorme `intervalo_horas - decorrido` antes do primeiro ciclo. Se o relógio indicar
+que o último ciclo está no futuro, espera o intervalo cheio.
+**Motivo:** auditoria de produção: restarts às 18:56/18:57 de 19/10 dispararam dois ciclos
+2h20 depois do ciclo legítimo das 16:36, e os dez boosts falharam com `reached shop's bump
+slot limit`. O histórico já tinha a informação, então não entrou arquivo nem dependência
+nova. O CB1 não tem RTC: antes do NTP o fake-hwclock volta o relógio, e por isso o caso
+"último ciclo no futuro" erra para o lado de esperar, que não queima slots.
+**Quem:** usuário (auditoria) + executor (T-014)
+
+## 2026-10-19 — config.toml relido a cada ciclo; corrida de escrita resolvida por atomicidade + lock + versão
+**Decisão:** o serviço relê o `config.toml` no início de cada ciclo, e o painel só grava o
+arquivo, sem `systemctl restart`. Config inválida no disco é logada e o loop segue com a
+última válida. O cliente Shopee só é recriado se `[shopee]`, `[rede]` ou o caminho do
+estado mudarem. Escritores (painel, `sincronizar_itens.py`, `definir_senha_painel.py`)
+passam todos por `config.atualizar_itens`/`definir_senha_painel`, que fazem ler →
+regenerar → gravar sob `config.toml.lock`, gravação atômica e durável
+(`arquivo.gravar_atomico`: temporário único + fsync + `os.replace` + fsync do diretório).
+Validação antes de gravar: TOML válido, `Config` válida, nada fora das chaves permitidas
+muda. O painel ainda faz checagem otimista (hash da versão lida → 409 se mudou).
+**Motivo:** reiniciar para aplicar exigiria dar permissão de systemctl ao processo do
+painel. Com a releitura por ciclo, o custo é ler ~4 KB a cada 4 h. Corrida: o serviço só
+lê, e o `os.replace` garante que ele veja o arquivo velho inteiro ou o novo inteiro. Entre
+escritores, o lock serializa quem coopera. O nano não coopera, e a checagem de versão do
+painel cobre esse caso sem sobrescrever a edição manual. Achado no caminho: o
+`config.toml` de produção tem `[rede]` DEPOIS dos `[[itens]]`, e o regenerador antigo
+truncava tudo a partir do primeiro `[[itens]]`. A próxima sincronização teria apagado o
+proxy. O novo troca só os blocos `[[itens]]`.
+**Quem:** usuário (pediu a releitura) + executor (T-012, T-015)
+
+## 2026-10-19 — Painel web: http.server da stdlib, sem dependência nova
+**Decisão:** o painel usa `http.server.HTTPServer` (stdlib), single-thread, com
+HTML/JS/CSS estáticos e JS puro, sem framework de front.
+**Motivo:** o CB1 tem 1 GB e divide CPU com o Klipper, que aborta impressão com "Timer too
+close" se o host engasgar. São quatro rotas. Flask/Bottle trariam dependência sem ganho
+nesse tamanho, e Streamlit foi vetado pelo usuário (runtime pesado, websocket e rerun
+permanentes). Ocioso, o `HTTPServer` fica bloqueado em `select()` (`poll_interval=3600`),
+sem CPU nem timer. A thread única serializa as gravações por construção, e o
+`timeout=15` do handler impede um cliente parado de prender a thread. As imagens o
+navegador baixa direto do CDN da Shopee. A página não faz polling. Runtime continua só
+`requests` + `pysocks`. No systemd: `CPUSchedulingPolicy=idle`, `IOSchedulingClass=idle`,
+`Nice=19`, `CPUQuota=50%`, `MemoryMax=96M`.
+**Quem:** executor (T-019, T-020)
+
+## 2026-10-19 — Painel: autenticação HTTP Basic contra hash PBKDF2, só LAN
+**Decisão:** HTTP Basic, com a senha guardada como `pbkdf2_sha256$200000$sal$hash`
+(stdlib `hashlib.pbkdf2_hmac`) em `[painel].senha_hash` do `config.toml`, que não é
+versionado. Sem hash, o painel responde 503 a tudo. A senha é definida por
+`scripts/definir_senha_painel.py` (getpass, nunca em argv nem em log). Defesas
+complementares:
+- filtro de IP de origem (RFC 1918 + loopback por padrão, o que exclui Tailscale
+  100.64/10);
+- bind só IPv4;
+- `Host` precisa ser IP ou o nome da máquina (DNS rebinding);
+- POST exige JSON + header `X-Painel` (CSRF via preflight);
+- CSP estrita;
+- 1 s de espera por senha errada;
+- cache em memória do header já validado, para não pagar PBKDF2 a cada requisição.
+**Motivo:** mexer em pesos é mexer em dinheiro, mesmo na LAN, mas é uma pessoa só numa
+rede doméstica. Login com sessão/cookie daria ~40 linhas a mais e estado de sessão no
+servidor, para ganhar só logout. Basic na LAN trafega a senha em base64 sem TLS. Aceito
+como proporcional: quem consegue farejar o Wi-Fi WPA2 da casa já está dentro da rede, e
+TLS exigiria certificado autoassinado e aviso no navegador a cada acesso. Basic + cookie
+em cache é vulnerável a CSRF, por isso o header obrigatório.
+**Quem:** executor (T-019), escolha proposta ao usuário e aprovada em 2026-10-19
+
+## 2026-10-19 — Porta do painel: 8790
+**Decisão:** `[painel].porta = 8790` por padrão, configurável.
+**Motivo:** `ss -ltn` no Pi em 2026-10-19 mostrou ocupadas 22, 53, 80 (Mainsail), 111,
+1080 (SOCKS do túnel, só 127.0.0.1), 5355, 7125 (Moonraker), 8080 (ustreamer) e uma porta
+alta do Tailscale. A 8790 fica fora da faixa do crowsnest (8080–8083) e das portas comuns
+de desenvolvimento (3000/5000/8000/8888). O instalador confere de novo antes de subir.
+**Quem:** executor (T-020)
+
+## 2026-10-19 — Catálogo: get_model_list opcional e formato de estoque incerto
+**Decisão:** preço e estoque de anúncio COM variações vêm de
+`/api/v2/product/get_model_list` (uma chamada por item com `has_model`), só quando
+`[painel].buscar_variacoes = true` (padrão) e só na atualização do cache. O estoque é lido
+de `stock_info_v2.summary_info.total_available_stock` ou, na falta, de
+`stock_info[0].normal_stock`. A ausência vira "não informado", nunca erro.
+**Motivo:** o `get_item_base_info` não traz preço/estoque de item com variações. O
+`get_model_list` é usado pela implementação irmã (`analista_dados_shopee`), mas este
+projeto ainda não o tinha exercitado contra a conta. Mesmo ceticismo do endpoint de
+boost: fica opcional, e uma falha nele só deixa o item com "preço varia". A API da Shopee
+migrou o formato do estoque (`stock_info` → `stock_info_v2`) e não há como confirmar sem
+login qual a conta devolve, por isso a extração aceita os dois.
+**Quem:** executor (T-017, T-018)
+
+## 2026-10-19 — Mensagem de erro do cliente Shopee nunca carrega credencial
+**Decisão:** `cliente_shopee.mensagem_segura` remove a query string de URLs e o valor de
+`access_token`/`refresh_token`/`sign`/`partner_key` de toda mensagem de exceção antes de
+ela virar `Resultado.erro`.
+**Motivo:** confirmado no Pi: o `shopee-rodizio.log` tinha 5 linhas com `access_token=` em
+claro. O `HTTPError` do `requests` embute a URL assinada inteira, e o texto ia para o log
+e o `estado.json` (e iria para o painel).
+**Quem:** executor (T-013)

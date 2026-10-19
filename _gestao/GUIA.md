@@ -23,8 +23,12 @@ exaustivo de símbolos é o `MAPA.md` ao lado, que é GERADO — ver
 | `src/shopee_rodizio/boost.py` | aciona o impulsionamento de um item | mudar a lógica de acionar boost |
 | `src/shopee_rodizio/selecao.py` | seleciona o próximo item a impulsionar respeitando o peso configurável | mudar o algoritmo de rodízio ponderado |
 | `src/shopee_rodizio/ciclo.py` | orquestra um ciclo: seleciona, impulsiona cada item, grava histórico; nenhum item derruba os demais | mudar a sequência ou a defesa contra falha de um item |
-| `src/shopee_rodizio/__main__.py` | entrypoint: carrega config, configura logging, loop `while True` a cada `intervalo_horas`, persiste o token renovado (`token.json`) para sobreviver a restart | mudar o agendamento, o loop principal, ou a persistência do token |
+| `src/shopee_rodizio/__main__.py` | entrypoint: espera o restante do intervalo na subida, relê o `config.toml` a cada ciclo, loop `while True` a cada `intervalo_horas` | mudar o agendamento ou o loop principal |
 | `src/shopee_rodizio/logging_config.py` | configura logging do serviço | mudar formato/destino dos logs |
+| `src/shopee_rodizio/arquivo.py` | escrita atômica durável e lock entre processos | qualquer nova escrita em disco |
+| `src/shopee_rodizio/armazem_token.py` | `token.json` compartilhado entre processos; `cliente_da_config` | qualquer código que chame a Shopee |
+| `src/shopee_rodizio/catalogo.py` | catálogo real da loja + cache `catalogo.json` | mudar o que se busca da loja |
+| `src/shopee_rodizio/painel.py`, `painel_web/` | painel web só-LAN dos pesos | mudar a página, rotas ou acesso |
 | `scripts/smoke_test.py` | diagnóstico manual: faz UMA chamada real de boost contra a API para confirmar `endpoint_boost` | confirmar/depurar o endpoint com credenciais reais (não roda em CI) |
 | `systemd/shopee-rodizio.service` | unidade systemd para deploy 24/7 no BTT Pi (`Restart=on-failure`) | mudar como o serviço é deployado/reiniciado |
 
@@ -39,6 +43,10 @@ exaustivo de símbolos é o `MAPA.md` ao lado, que é GERADO — ver
 | preciso de… | use | onde |
 |---|---|---|
 | dependência HTTP | `requests` (já no `pyproject.toml`) | `pyproject.toml` |
+| gravar arquivo | `gravar_atomico(caminho, texto)` | `arquivo.py` |
+| mudar `[[itens]]` do config | `atualizar_itens(caminho, itens, nomes, versao_esperada)` | `config.py` |
+| cliente Shopee | `cliente_da_config(config)` — nunca token do config.toml | `armazem_token.py` |
+| catálogo da loja | `buscar_item_ids_ativos`, `buscar_detalhes`, `baixar_catalogo` | `catalogo.py` |
 
 ## Armadilhas conhecidas
 

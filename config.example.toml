@@ -27,6 +27,15 @@ estado = "estado.json"
 # [rede]
 # proxy_https = "socks5h://127.0.0.1:1080"
 
+# Seção opcional — painel web dos pesos (README, "Painel web dos pesos"). Sem ela, o painel
+# usa os padrões abaixo e não atende ninguém até a senha ser definida com
+# scripts/atalhos/definir_senha_painel.sh (que grava só o hash aqui).
+# [painel]
+# porta = 8790                 # não conflita com Moonraker 7125, Mainsail 80, ustreamer 8080, SOCKS 1080
+# cache_horas = 24             # validade do catálogo em cache antes de rebuscar na Shopee
+# buscar_variacoes = true      # preço/estoque de anúncios com variação (1 chamada extra por item)
+# senha_hash = "pbkdf2_sha256$..."
+
 # Um bloco [[itens]] por anúncio participante do rodízio. `peso` é relativo entre os
 # itens: quanto maior, mais frequentemente o item é sorteado para impulsionar.
 [[itens]]

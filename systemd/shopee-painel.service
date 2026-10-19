@@ -1,0 +1,51 @@
+# Painel web (só LAN) para ajustar os pesos do shopee-rodizio. Instalação:
+# scripts/atalhos/instalar_painel.sh (ver README, "Painel web dos pesos").
+#
+# Serviço SEPARADO do rodízio, de propósito: não declara dependência nenhuma dele (nem do
+# túnel — sem túnel o painel segue mostrando o catálogo em cache), então cair aqui não
+# derruba o rodízio, e o rodízio só enxerga o que este processo grava no config.toml.
+#
+# O BTT Pi divide CPU com o Klipper, que aborta a impressão ("Timer too close") se o host
+# engasgar: o painel roda com prioridade de CPU e de disco "idle" (só usa o que sobra),
+# limite de memória e de CPU, e sem nenhum timer — parado, fica bloqueado em select().
+#
+# Mesmas suposições de usuário/caminho de shopee-rodizio.service (biqu, /home/biqu/shopee-rodizio).
+
+[Unit]
+Description=shopee-painel - painel web (LAN) dos pesos do shopee-rodizio
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=biqu
+Group=biqu
+WorkingDirectory=/home/biqu/shopee-rodizio
+# python do .venv direto (sem o processo `uv run` residente): o instalar_painel.sh roda
+# `uv sync` antes, então o pacote já está instalado no .venv
+ExecStart=/home/biqu/shopee-rodizio/.venv/bin/python -m shopee_rodizio.painel /home/biqu/shopee-rodizio/config.toml
+Restart=on-failure
+RestartSec=30
+SuccessExitStatus=143
+Environment=PYTHONUNBUFFERED=1
+
+# nunca competir com o Klipper
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+CPUQuota=50%
+MemoryMax=96M
+
+# endurecimento: só escreve na pasta do projeto (config.toml, catalogo.json, token.json)
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/biqu/shopee-rodizio
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target
